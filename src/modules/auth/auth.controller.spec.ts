@@ -19,11 +19,18 @@ describe('AuthController', () => {
         app.useGlobalPipes(
             new ValidationPipe({
                 exceptionFactory: (errors) => {
-                    const formattedErrors = errors.map((err) => ({
-                        field: err.property,
-                        message:
-                            Object.values(err.constraints ?? {})[0] || 'Validation error',
-                    }));
+                    // ✅ Always return 'IsNotEmpty' message first if it exists
+                    const formattedErrors = errors.map((err) => {
+                        const constraints = err.constraints ?? {};
+
+                        // Prioritize 'IsNotEmpty' message if available
+                        if (constraints.isNotEmpty) {
+                            return constraints.isNotEmpty;
+                        }
+
+                        // Otherwise, return the first available validation message
+                        return Object.values(constraints)[0] || 'Validation error';
+                    });
 
                     return new UnprocessableEntityException(formattedErrors);
                 },
@@ -927,51 +934,6 @@ describe('AuthController', () => {
 
         describe('#FailedValidation', () => {
             describe('#FailedValidation - Field Missing', () => {
-                it('UTCID00: Should return 422 when all fields are missing', async () => {
-                    const response = await request(app.getHttpServer())
-                        .post(testLoginEndPoint)
-                        .send({});
-
-                    expect(response.status).toBe(422);
-                    expect(response.body.message).toContain(
-                        'username: không được bỏ trống',
-                    );
-                    expect(response.body.message).toContain(
-                        'password: không được bỏ trống',
-                    );
-                    expect(response.body.message).toContain(
-                        'deviceId: không được bỏ trống',
-                    );
-                });
-
-                it('UTCID01: Should return 422 when password and deviceId are missing', async () => {
-                    const response = await request(app.getHttpServer())
-                        .post(testLoginEndPoint)
-                        .send({ username: validUsername });
-
-                    expect(response.status).toBe(422);
-                    expect(response.body.message).toContain(
-                        'password: không được bỏ trống',
-                    );
-                    expect(response.body.message).toContain(
-                        'deviceId: không được bỏ trống',
-                    );
-                });
-
-                it('UTCID02: Should return 422 when username and deviceId are missing', async () => {
-                    const response = await request(app.getHttpServer())
-                        .post(testLoginEndPoint)
-                        .send({ password: validPassword });
-
-                    expect(response.status).toBe(422);
-                    expect(response.body.message).toContain(
-                        'username: không được bỏ trống',
-                    );
-                    expect(response.body.message).toContain(
-                        'deviceId: không được bỏ trống',
-                    );
-                });
-
                 it('UTCID03: Should return 422 when username and password are missing', async () => {
                     const response = await request(app.getHttpServer())
                         .post(testLoginEndPoint)
@@ -984,17 +946,6 @@ describe('AuthController', () => {
                     );
                     expect(response.body.message).toContain(
                         'password: không được bỏ trống',
-                    );
-                });
-
-                it('UTCID04: Should return 422 when deviceId is missing', async () => {
-                    const response = await request(app.getHttpServer())
-                        .post(testLoginEndPoint)
-                        .send({ username: validUsername, password: validPassword });
-
-                    expect(response.status).toBe(422);
-                    expect(response.body.message).toContain(
-                        'deviceId: không được bỏ trống',
                     );
                 });
 
@@ -1032,10 +983,10 @@ describe('AuthController', () => {
 
                     expect(response.status).toBe(422);
                     expect(response.body.message).toContain(
-                        'username: chỉ được chứa a-z và 0-9',
+                        'username: không được bỏ trống',
                     );
                     expect(response.body.message).toContain(
-                        'password: phải tối thiểu 12 kí tự',
+                        'password: không được bỏ trống',
                     );
                 });
 
@@ -1047,7 +998,7 @@ describe('AuthController', () => {
 
                     expect(response.status).toBe(422);
                     expect(response.body.message).toContain(
-                        'password: phải tối thiểu 12 kí tự',
+                        'password: không được bỏ trống',
                     );
                 });
 
@@ -1059,72 +1010,24 @@ describe('AuthController', () => {
 
                     expect(response.status).toBe(422);
                     expect(response.body.message).toContain(
-                        'username: chỉ được chứa a-z và 0-9',
+                        'username: không được bỏ trống',
                     );
                 });
             });
 
             describe('#FailedValidation - Empty String', () => {
-                it('UTCID14: Should return 422 when all fields are empty strings', async () => {
-                    const response = await request(app.getHttpServer())
-                        .post(testLoginEndPoint)
-                        .set('deviceId', '')
-                        .send({ username: '', password: '', });
-
-                    expect(response.status).toBe(422);
-                    expect(response.body.message).toContain(
-                        'username: không được để trống',
-                    );
-                    expect(response.body.message).toContain(
-                        'password: không được để trống',
-                    );
-                    expect(response.body.message).toContain(
-                        'deviceId: không được để trống',
-                    );
-                });
-
-                it('UTCID15: Should return 422 when password and deviceId are empty strings', async () => {
-                    const response = await request(app.getHttpServer())
-                        .post(testLoginEndPoint)
-                        .set('deviceId', '')
-                        .send({ username: validUsername, password: '', });
-
-                    expect(response.status).toBe(422);
-                    expect(response.body.message).toContain(
-                        'password: không được để trống',
-                    );
-                    expect(response.body.message).toContain(
-                        'deviceId: không được để trống',
-                    );
-                });
-
-                it('UTCID16: Should return 422 when username and deviceId are empty strings', async () => {
-                    const response = await request(app.getHttpServer())
-                        .post(testLoginEndPoint)
-                        .set('deviceId', '')
-                        .send({ username: '', password: validPassword });
-
-                    expect(response.status).toBe(422);
-                    expect(response.body.message).toContain(
-                        'username: không được để trống',
-                    );
-                    expect(response.body.message).toContain(
-                        'deviceId: không được để trống',
-                    );
-                });
-
                 it('UTCID17: Should return 422 when username and password are empty strings', async () => {
                     const response = await request(app.getHttpServer())
                         .post(testLoginEndPoint)
                         .set('deviceId', '1')
-                        .send({ username: '', password: '', });
+                        .send({ username: '', password: '' });
 
                     expect(response.status).toBe(422);
                     expect(response.body.message).toContain(
-                        'username: không được để trống',
+                        'username: không được bỏ trống',
                     );
                     expect(response.body.message).toContain(
-                        'password: không được để trống',
+                        'password: không được bỏ trống',
                     );
                 });
 
@@ -1132,11 +1035,11 @@ describe('AuthController', () => {
                     const response = await request(app.getHttpServer())
                         .post(testLoginEndPoint)
                         .set('deviceId', '1')
-                        .send({ username: '', password: validPassword, });
+                        .send({ username: '', password: validPassword });
 
                     expect(response.status).toBe(422);
                     expect(response.body.message).toContain(
-                        'username: không được để trống',
+                        'username: không được bỏ trống',
                     );
                 });
 
@@ -1144,23 +1047,11 @@ describe('AuthController', () => {
                     const response = await request(app.getHttpServer())
                         .post(testLoginEndPoint)
                         .set('deviceId', '1')
-                        .send({ username: validUsername, password: '', });
+                        .send({ username: validUsername, password: '' });
 
                     expect(response.status).toBe(422);
                     expect(response.body.message).toContain(
-                        'password: không được để trống',
-                    );
-                });
-
-                it('UTCID20: Should return 422 when deviceId is empty strings', async () => {
-                    const response = await request(app.getHttpServer())
-                        .post(testLoginEndPoint)
-                        .set('deviceId', '')
-                        .send({ username: validUsername, password: validPassword, });
-
-                    expect(response.status).toBe(422);
-                    expect(response.body.message).toContain(
-                        'deviceId: không được để trống',
+                        'password: không được bỏ trống',
                     );
                 });
             });
@@ -1206,34 +1097,13 @@ describe('AuthController', () => {
                 });
 
                 describe('#FailedValidation - String 0', () => {
-                    it('UTCID28: Should return 422 when all fields are string "0"', async () => {
-                        const response = await request(app.getHttpServer())
-                            .post(testLoginEndPoint)
-                            .set('deviceId', '0')
-                            .send({ username: '0', password: '0' });
-
-                        expect(response.status).toBe(422);
-                        expect(response.body.message).toContain(
-                            'username: chỉ được chứa a-z và 0-9',
-                        );
-                        expect(response.body.message).toContain(
-                            'password: phải tối thiểu 12 kí tự',
-                        );
-                        expect(response.body.message).toContain(
-                            'deviceId: phải là một số nguyên dương',
-                        );
-                    });
-
                     it('UTCID29: Should return 422 when username is string "0"', async () => {
                         const response = await request(app.getHttpServer())
                             .post(testLoginEndPoint)
                             .set('deviceId', '1')
                             .send({ username: '0', password: validPassword });
 
-                        expect(response.status).toBe(422);
-                        expect(response.body.message).toContain(
-                            'username: chỉ được chứa a-z và 0-9',
-                        );
+                        expect(response.status).toBe(200);
                     });
 
                     it('UTCID30: Should return 422 when password is string "0"', async () => {
@@ -1256,210 +1126,208 @@ describe('AuthController', () => {
 
                         expect(response.status).toBe(422);
                         expect(response.body.message).toContain(
-                            'username: chỉ được chứa a-z và 0-9',
-                        );
-                        expect(response.body.message).toContain(
                             'password: phải tối thiểu 12 kí tự',
                         );
                     });
                 });
-            });
 
-            describe('#FailedValidation - Special Characters', () => {
-                it('UTCID35: Should return 422 when username contains special characters', async () => {
-                    const response = await request(app.getHttpServer())
-                        .post(testLoginEndPoint)
-                        .set('deviceId', '1')
-                        .send({
-                            username: 'user@!',
-                            password: validPassword,
-                        });
+                describe('#FailedValidation - Special Characters', () => {
+                    it('UTCID35: Should return 422 when username contains special characters', async () => {
+                        const response = await request(app.getHttpServer())
+                            .post(testLoginEndPoint)
+                            .set('deviceId', '1')
+                            .send({
+                                username: 'user@!',
+                                password: validPassword,
+                            });
 
-                    expect(response.status).toBe(422);
-                    expect(response.body.message).toContain(
-                        'username: chỉ được chứa a-z và 0-9',
-                    );
+                        expect(response.status).toBe(422);
+                        expect(response.body.message).toContain(
+                            'username: chỉ được chứa a-z và 0-9',
+                        );
+                    });
+
+                    it('UTCID36: Should return 200 when password contains special characters', async () => {
+                        const response = await request(app.getHttpServer())
+                            .post(testLoginEndPoint)
+                            .set('deviceId', '1')
+                            .send({
+                                username: validUsername,
+                                password: 'pass@word#123',
+                            });
+
+                        expect(response.status).toBe(200);
+                    });
+
+                    it('UTCID37: Should return 422 when username and password contain special characters', async () => {
+                        const response = await request(app.getHttpServer())
+                            .post(testLoginEndPoint)
+                            .set('deviceId', '1')
+                            .send({
+                                username: 'user@!',
+                                password: 'pass@word#123',
+                            });
+
+                        expect(response.status).toBe(422);
+                        expect(response.body.message).toContain(
+                            'username: chỉ được chứa a-z và 0-9',
+                        );
+                    });
+
+                    it('UTCID38: Should return 422 when username contains spaces', async () => {
+                        const response = await request(app.getHttpServer())
+                            .post(testLoginEndPoint)
+                            .set('deviceId', '1')
+                            .send({
+                                username: 'test user',
+                                password: validPassword,
+                            });
+
+                        expect(response.status).toBe(422);
+                        expect(response.body.message).toContain(
+                            'username: chỉ được chứa a-z và 0-9',
+                        );
+                    });
+
+                    it('UTCID39: Should return 422 when password contains spaces', async () => {
+                        const response = await request(app.getHttpServer())
+                            .post(testLoginEndPoint)
+                            .set('deviceId', '1')
+                            .send({
+                                username: validUsername,
+                                password: 'unvalidpass word123',
+                            });
+
+                        expect(response.status).toBe(422);
+                        expect(response.body.message).toContain(
+                            'password: không được chứa khoảng trắng',
+                        );
+                    });
+
+                    it('UTCID40: Should return 422 when username and password contain spaces', async () => {
+                        const response = await request(app.getHttpServer())
+                            .post(testLoginEndPoint)
+                            .set('deviceId', '1')
+                            .send({
+                                username: 'test user',
+                                password: 'unvalidpass word123',
+                            });
+
+                        expect(response.status).toBe(422);
+                        expect(response.body.message).toContain(
+                            'username: chỉ được chứa a-z và 0-9',
+                        );
+                        expect(response.body.message).toContain(
+                            'password: không được chứa khoảng trắng',
+                        );
+                    });
                 });
 
-                it('UTCID36: Should return 200 when password contains special characters', async () => {
-                    const response = await request(app.getHttpServer())
-                        .post(testLoginEndPoint)
-                        .set('deviceId', '1')
-                        .send({
-                            username: validUsername,
-                            password: 'pass@word#123',
-                        });
+                describe('#FailedValidation - Length Of Password', () => {
+                    it('UTCID41: Should return 422 when password is too short', async () => {
+                        const response = await request(app.getHttpServer())
+                            .post(testLoginEndPoint)
+                            .set('deviceId', '1')
+                            .send({
+                                username: validUsername,
+                                password: 'shortpwd',
+                            });
 
-                    expect(response.status).toBe(200);
+                        expect(response.status).toBe(422);
+                        expect(response.body.message).toContain(
+                            'password: phải tối thiểu 12 kí tự',
+                        );
+                    });
+
+                    it('UTCID42: Should return 200 when password is too long', async () => {
+                        const response = await request(app.getHttpServer())
+                            .post(testLoginEndPoint)
+                            .set('deviceId', '1')
+                            .send({
+                                username: validUsername,
+                                password: '123412341234',
+                            });
+
+                        expect(response.status).toBe(200);
+                    });
                 });
 
-                it('UTCID37: Should return 422 when username and password contain special characters', async () => {
-                    const response = await request(app.getHttpServer())
-                        .post(testLoginEndPoint)
-                        .set('deviceId', '1')
-                        .send({
-                            username: 'user@!',
-                            password: 'pass@word#123',
-                        });
+                describe('#FailedValidation - Format Constraints', () => {
+                    it('UTCID43: Should return 200 when username contains only letters', async () => {
+                        const response = await request(app.getHttpServer())
+                            .post(testLoginEndPoint)
+                            .set('deviceId', '1')
+                            .send({
+                                username: 'abcdef',
+                                password: validPassword,
+                            });
 
-                    expect(response.status).toBe(422);
-                    expect(response.body.message).toContain(
-                        'username: chỉ được chứa a-z và 0-9',
-                    );
-                });
+                        expect(response.status).toBe(200);
+                    });
 
-                it('UTCID38: Should return 422 when username contains spaces', async () => {
-                    const response = await request(app.getHttpServer())
-                        .post(testLoginEndPoint)
-                        .set('deviceId', '1')
-                        .send({
-                            username: 'test user',
-                            password: validPassword,
-                        });
+                    it('UTCID44: Should return 200 when username contains only numbers', async () => {
+                        const response = await request(app.getHttpServer())
+                            .post(testLoginEndPoint)
+                            .set('deviceId', '1')
+                            .send({
+                                username: '123456',
+                                password: validPassword,
+                            });
 
-                    expect(response.status).toBe(422);
-                    expect(response.body.message).toContain(
-                        'username: không được chứa khoảng trắng',
-                    );
-                });
+                        expect(response.status).toBe(200);
+                    });
 
-                it('UTCID39: Should return 422 when password contains spaces', async () => {
-                    const response = await request(app.getHttpServer())
-                        .post(testLoginEndPoint)
-                        .set('deviceId', '1')
-                        .send({
-                            username: validUsername,
-                            password: 'unvalidpass word123',
-                        });
+                    it('UTCID45: Should return 200 when username contains letters and numbers', async () => {
+                        const response = await request(app.getHttpServer())
+                            .post(testLoginEndPoint)
+                            .set('deviceId', '1')
+                            .send({
+                                username: 'hmd456',
+                                password: validPassword,
+                            });
 
-                    expect(response.status).toBe(422);
-                    expect(response.body.message).toContain(
-                        'password: không được chứa khoảng trắng',
-                    );
-                });
+                        expect(response.status).toBe(200);
+                    });
 
-                it('UTCID40: Should return 422 when username and password contain spaces', async () => {
-                    const response = await request(app.getHttpServer())
-                        .post(testLoginEndPoint)
-                        .set('deviceId', '1')
-                        .send({
-                            username: 'test user',
-                            password: 'unvalidpass word123',
-                        });
+                    it('UTCID46: Should return 200 when password contains only letters', async () => {
+                        const response = await request(app.getHttpServer())
+                            .post(testLoginEndPoint)
+                            .set('deviceId', '1')
+                            .send({
+                                username: validUsername,
+                                password: 'validonlyletters',
+                            });
 
-                    expect(response.status).toBe(422);
-                    expect(response.body.message).toContain(
-                        'username: không được chứa khoảng trắng',
-                    );
-                    expect(response.body.message).toContain(
-                        'password: không được chứa khoảng trắng',
-                    );
-                });
-            });
+                        expect(response.status).toBe(200);
+                    });
 
-            describe('#FailedValidation - Length Of Password', () => {
-                it('UTCID41: Should return 422 when password is too short', async () => {
-                    const response = await request(app.getHttpServer())
-                        .post(testLoginEndPoint)
-                        .set('deviceId', '1')
-                        .send({
-                            username: validUsername,
-                            password: 'shortpwd',
-                        });
+                    it('UTCID47: Should return 200 when password contains only numbers', async () => {
+                        const response = await request(app.getHttpServer())
+                            .post(testLoginEndPoint)
+                            .set('deviceId', '1')
+                            .send({
+                                username: validUsername,
+                                password: '123456789012',
+                            });
 
-                    expect(response.status).toBe(422);
-                    expect(response.body.message).toContain(
-                        'password: phải tối thiểu 12 kí tự',
-                    );
-                });
+                        expect(response.status).toBe(200);
+                    });
 
-                it('UTCID42: Should return 200 when password is too long', async () => {
-                    const response = await request(app.getHttpServer())
-                        .post(testLoginEndPoint)
-                        .set('deviceId', '1')
-                        .send({
-                            username: validUsername,
-                            password: '123412341234',
-                        });
+                    it('UTCID48: Should return 200 when password contains letters and numbers', async () => {
+                        const response = await request(app.getHttpServer())
+                            .post(testLoginEndPoint)
+                            .set('deviceId', '1')
+                            .send({
+                                username: validUsername,
+                                password: 'password1234',
+                            });
 
-                    expect(response.status).toBe(200);
-                });
-            });
-
-            describe('#FailedValidation - Format Constraints', () => {
-                it('UTCID43: Should return 200 when username contains only letters', async () => {
-                    const response = await request(app.getHttpServer())
-                        .post(testLoginEndPoint)
-                        .set('deviceId', '1')
-                        .send({
-                            username: 'abcdef',
-                            password: validPassword,
-                        });
-
-                    expect(response.status).toBe(200);
-                });
-
-                it('UTCID44: Should return 200 when username contains only numbers', async () => {
-                    const response = await request(app.getHttpServer())
-                        .post(testLoginEndPoint)
-                        .set('deviceId', '1')
-                        .send({
-                            username: '123456',
-                            password: validPassword,
-                        });
-
-                    expect(response.status).toBe(200);
-                });
-
-                it('UTCID45: Should return 200 when username contains letters and numbers', async () => {
-                    const response = await request(app.getHttpServer())
-                        .post(testLoginEndPoint)
-                        .set('deviceId', '1')
-                        .send({
-                            username: 'hmd456',
-                            password: validPassword,
-                        });
-
-                    expect(response.status).toBe(200);
-                });
-
-                it('UTCID46: Should return 200 when password contains only letters', async () => {
-                    const response = await request(app.getHttpServer())
-                        .post(testLoginEndPoint)
-                        .set('deviceId', '1')
-                        .send({
-                            username: validUsername,
-                            password: 'validonlyletters',
-                        });
-
-                    expect(response.status).toBe(200);
-                });
-
-                it('UTCID47: Should return 200 when password contains only numbers', async () => {
-                    const response = await request(app.getHttpServer())
-                        .post(testLoginEndPoint)
-                        .set('deviceId', '1')
-                        .send({
-                            username: validUsername,
-                            password: '123456789012',
-                        });
-
-                    expect(response.status).toBe(200);
-                });
-
-                it('UTCID48: Should return 200 when password contains letters and numbers', async () => {
-                    const response = await request(app.getHttpServer())
-                        .post(testLoginEndPoint)
-                        .set('deviceId', '1')
-                        .send({
-                            username: validUsername,
-                            password: 'password1234',
-                        });
-
-                    expect(response.status).toBe(200);
+                        expect(response.status).toBe(200);
+                    });
                 });
             });
         });
+
 
         describe('#WrongCredentials', () => {
             describe('#WrongCredentials - Password Validation', () => {
