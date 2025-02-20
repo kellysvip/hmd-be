@@ -1,7 +1,5 @@
 import { IsNotEmpty, Matches, MinLength } from 'class-validator';
 
-import { IsNoWhitespace } from '../../../common/constants/decorators/is-no-white-space';
-
 export class AuthDto {
   @IsNotEmpty({
     message: 'username: không được bỏ trống',
@@ -14,7 +12,7 @@ export class AuthDto {
   @IsNotEmpty({
     message: 'password: không được bỏ trống',
   })
-  @IsNoWhitespace({
+  @Matches(/^\S+$/, {
     message: 'password: không được chứa khoảng trắng',
   })
   @MinLength(12, {
