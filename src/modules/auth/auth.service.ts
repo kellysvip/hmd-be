@@ -4,8 +4,7 @@ import { AuthDto } from './dto/auth.dto';
 
 @Injectable({})
 export class AuthService {
-  constructor(
-  ) {}
+  constructor() {}
 
   /**
    * Verify if user is logged in

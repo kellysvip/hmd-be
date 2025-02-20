@@ -1,4 +1,4 @@
-import { ValidationPipe } from '@nestjs/common';
+import { ValidationPipe, UnprocessableEntityException } from '@nestjs/common';
 
 export default () =>
   new ValidationPipe({
@@ -13,5 +13,16 @@ export default () =>
     validationError: {
       target: false,
       value: true,
+    },
+    exceptionFactory: (errors) => {
+      const formattedErrors = errors.map((err) => {
+        const constraints = err.constraints ?? {};
+        if (constraints.isNotEmpty) {
+          return constraints.isNotEmpty;
+        }
+        return Object.values(constraints)[0] || 'Validation error';
+      });
+
+      return new UnprocessableEntityException(formattedErrors);
     },
   });
