@@ -38,6 +38,11 @@ This project demonstrates the integration of NestJS with Prisma, featuring:
 - `npm run format` - Format code with Prettier
 - `npx tsx scripts` - Insert data into database
 
+## TDD Approach
+
+The project follows a Test-Driven Development (TDD) approach, with tests written before the implementation of features.
+- `npm run test:unit` - Run unit tests
+
 ## Project Structure
 
 - `src/` - Source code directory
