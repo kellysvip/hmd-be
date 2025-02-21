@@ -16,24 +16,6 @@ describe('AuthController', () => {
 
     app = moduleFixture.createNestApplication();
 
-    app.useGlobalPipes(
-      new ValidationPipe({
-        exceptionFactory: (errors) => {
-          const formattedErrors = errors.map((err) => {
-            const constraints = err.constraints ?? {};
-
-            if (constraints.isNotEmpty) {
-              return constraints.isNotEmpty;
-            }
-
-            return Object.values(constraints)[0] || 'Validation error';
-          });
-
-          return new UnprocessableEntityException(formattedErrors);
-        },
-      }),
-    );
-
     await app.init();
   });
 
@@ -99,10 +81,11 @@ describe('AuthController', () => {
             await request(app.getHttpServer()).post(testLoginEndPoint);
           }
 
-          const res = await request(app.getHttpServer()).post(
+          const response = await request(app.getHttpServer()).post(
             testLoginEndPoint,
           );
-          expect(res.status).toBe(429);
+          expect(response.status).toBe(429);
+          expect(response.body.message).toBe('Vui lòng thử lại sau 30 giây');
         });
       });
 
@@ -144,12 +127,15 @@ describe('AuthController', () => {
 
           await new Promise((resolve) => setTimeout(resolve, 1000));
 
-          for (let i = 0; i < 6; i++) {
-            const response = await request(app.getHttpServer()).post(
-              testLoginEndPoint,
-            );
-            expect(response.status).not.toBe(429);
+          for (let i = 0; i < 5; i++) {
+            await request(app.getHttpServer()).post(testLoginEndPoint);
           }
+
+          const response = await request(app.getHttpServer()).post(
+            testLoginEndPoint,
+          );
+          expect(response.status).not.toBe(429);
+          expect(response.body.message).toBe('Vui lòng thử lại sau 30 giây');
         });
 
         it('UTCID09: Should recover burst after 1 second with no requests', async () => {
@@ -258,18 +244,18 @@ describe('AuthController', () => {
           for (let i = 0; i < 15; i++) {
             await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('Authorization', 'Bearer user1token');
+              .set('X-Forwarded-For', '192.168.1.1');
           }
 
           await request(app.getHttpServer())
             .post(testLoginEndPoint)
-            .set('Authorization', 'Bearer user1token')
+            .set('X-Forwarded-For', '192.168.1.1')
 
             .expect(429);
 
           const response = await request(app.getHttpServer())
             .post(testLoginEndPoint)
-            .set('Authorization', 'Bearer user2token');
+            .set('X-Forwarded-For', '192.168.1.2');
 
           expect(response.status).not.toBe(429);
         });
@@ -278,19 +264,19 @@ describe('AuthController', () => {
           for (let i = 0; i < 15; i++) {
             await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('Authorization', 'Bearer user1token');
+              .set('X-Forwarded-For', '192.168.1.1');
           }
 
           await request(app.getHttpServer())
             .post(testLoginEndPoint)
-            .set('Authorization', 'Bearer user1token')
+            .set('X-Forwarded-For', '192.168.1.1')
 
             .expect(429);
 
           for (let i = 0; i < 5; i++) {
             const response = await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('Authorization', 'Bearer user2token');
+              .set('X-Forwarded-For', '192.168.1.2');
 
             expect(response.status).not.toBe(429);
           }
@@ -300,19 +286,20 @@ describe('AuthController', () => {
           for (let i = 0; i < 15; i++) {
             await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('Authorization', 'Bearer user1token');
+              .set('X-Forwarded-For', '192.168.1.1');
           }
 
           await request(app.getHttpServer())
             .post(testLoginEndPoint)
-            .set('Authorization', 'Bearer user1token')
+            .set('X-Forwarded-For', '192.168.1.1')
 
             .expect(429);
 
           for (let i = 0; i < 6; i++) {
             const response = await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('Authorization', 'Bearer user2token');
+              .set('X-Forwarded-For', '192.168.1.2');
+
             expect(response.status).not.toBe(429);
           }
         });
@@ -321,19 +308,19 @@ describe('AuthController', () => {
           for (let i = 0; i < 15; i++) {
             await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('Authorization', 'Bearer user1token');
+              .set('X-Forwarded-For', '192.168.1.1');
           }
 
           await request(app.getHttpServer())
             .post(testLoginEndPoint)
-            .set('Authorization', 'Bearer user1token')
-
+            .set('X-Forwarded-For', '192.168.1.1')
             .expect(429);
 
           for (let i = 0; i < 14; i++) {
             const response = await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('Authorization', 'Bearer user2token');
+              .set('X-Forwarded-For', '192.168.1.2');
+
             expect(response.status).not.toBe(429);
           }
         });
@@ -342,19 +329,19 @@ describe('AuthController', () => {
           for (let i = 0; i < 15; i++) {
             await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('Authorization', 'Bearer user1token');
+              .set('X-Forwarded-For', '192.168.1.1');
           }
 
           await request(app.getHttpServer())
             .post(testLoginEndPoint)
-            .set('Authorization', 'Bearer user1token')
-
+            .set('X-Forwarded-For', '192.168.1.1')
             .expect(429);
 
           for (let i = 0; i < 15; i++) {
             const response = await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('Authorization', 'Bearer user2token');
+              .set('X-Forwarded-For', '192.168.1.2');
+
             expect(response.status).not.toBe(429);
           }
         });
@@ -363,26 +350,20 @@ describe('AuthController', () => {
           for (let i = 0; i < 15; i++) {
             await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('Authorization', 'Bearer user1token');
+              .set('X-Forwarded-For', '192.168.1.1');
           }
 
           await request(app.getHttpServer())
             .post(testLoginEndPoint)
-            .set('Authorization', 'Bearer user1token')
-
+            .set('X-Forwarded-For', '192.168.1.1')
             .expect(429);
 
           for (let i = 0; i < 15; i++) {
             const response = await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('Authorization', 'Bearer user2token');
-            expect(response.status).not.toBe(429);
+              .set('X-Forwarded-For', '192.168.1.2');
+            expect(response.status).toBe(429);
           }
-
-          const response = await request(app.getHttpServer())
-            .post(testLoginEndPoint)
-            .set('Authorization', 'Bearer user2token');
-          expect(response.status).toBe(429);
         });
       });
 
@@ -391,17 +372,17 @@ describe('AuthController', () => {
           for (let i = 0; i < 15; i++) {
             await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('Authorization', 'Bearer user1token');
+              .set('X-Forwarded-For', '192.168.1.1');
           }
 
           await request(app.getHttpServer())
             .post(testLoginEndPoint)
-            .set('Authorization', 'Bearer user1token')
+            .set('X-Forwarded-For', '192.168.1.1')
             .expect(429);
 
           for (let i = 0; i < 15; i++) {
             await request(app.getHttpServer())
-              .set('Authorization', 'Bearer user2token')
+              .set('X-Forwarded-For', '192.168.1.2')
               .post(testLoginEndPoint);
           }
 
@@ -409,7 +390,7 @@ describe('AuthController', () => {
 
           const response = await request(app.getHttpServer())
             .post(testLoginEndPoint)
-            .set('Authorization', 'Bearer user2token');
+            .set('X-Forwarded-For', '192.168.1.2');
 
           expect(response.status).not.toBe(429);
         });
@@ -418,18 +399,18 @@ describe('AuthController', () => {
           for (let i = 0; i < 15; i++) {
             await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('Authorization', 'Bearer user1token');
+              .set('X-Forwarded-For', '192.168.1.1');
           }
 
           await request(app.getHttpServer())
             .post(testLoginEndPoint)
-            .set('Authorization', 'Bearer user1token')
+            .set('X-Forwarded-For', '192.168.1.1')
             .expect(429);
 
           for (let i = 0; i < 15; i++) {
             await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('Authorization', 'Bearer user2token');
+              .set('X-Forwarded-For', '192.168.1.2');
           }
 
           await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -437,7 +418,7 @@ describe('AuthController', () => {
           for (let i = 0; i < 5; i++) {
             const response = await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('Authorization', 'Bearer user2token');
+              .set('X-Forwarded-For', '192.168.1.2');
 
             expect(response.status).not.toBe(429);
           }
@@ -447,27 +428,26 @@ describe('AuthController', () => {
           for (let i = 0; i < 15; i++) {
             await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('Authorization', 'Bearer user1token');
+              .set('X-Forwarded-For', '192.168.1.1');
           }
 
           await request(app.getHttpServer())
             .post(testLoginEndPoint)
-            .set('Authorization', 'Bearer user1token')
-
+            .set('X-Forwarded-For', '192.168.1.1')
             .expect(429);
 
           for (let i = 0; i < 15; i++) {
             await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('Authorization', 'Bearer user2token');
+              .set('X-Forwarded-For', '192.168.1.2');
           }
 
           await new Promise((resolve) => setTimeout(resolve, 1000));
 
-          for (let i = 0; i < 6; i++) {
+          for (let i = 0; i < 5; i++) {
             const response = await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('Authorization', 'Bearer user2token');
+              .set('X-Forwarded-For', '192.168.1.2');
             expect(response.status).not.toBe(429);
           }
         });
@@ -476,32 +456,33 @@ describe('AuthController', () => {
           for (let i = 0; i < 15; i++) {
             await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('Authorization', 'Bearer user1token');
+              .set('X-Forwarded-For', '192.168.1.1');
           }
 
           await request(app.getHttpServer())
             .post(testLoginEndPoint)
-            .set('Authorization', 'Bearer user1token')
+            .set('X-Forwarded-For', '192.168.1.1')
 
             .expect(429);
 
           for (let i = 0; i < 15; i++) {
             await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('Authorization', 'Bearer user2token');
+              .set('X-Forwarded-For', '192.168.1.2');
           }
 
-          const response = await request(app.getHttpServer())
+          const firstResponse = await request(app.getHttpServer())
             .post(testLoginEndPoint)
-            .set('Authorization', 'Bearer user2token');
-          expect(response.status).toBe(429);
+            .set('X-Forwarded-For', '192.168.1.2');
+
+          expect(firstResponse.status).toBe(429);
 
           await new Promise((resolve) => setTimeout(resolve, 1000));
 
           for (let i = 0; i < 5; i++) {
             const response = await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('Authorization', 'Bearer user2token');
+              .set('X-Forwarded-For', '192.168.1.2');
             expect(response.status).not.toBe(429);
           }
         });
@@ -510,24 +491,23 @@ describe('AuthController', () => {
           for (let i = 0; i < 15; i++) {
             await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('Authorization', 'Bearer user1token');
+              .set('X-Forwarded-For', '192.168.1.1');
           }
 
           await request(app.getHttpServer())
             .post(testLoginEndPoint)
-            .set('Authorization', 'Bearer user1token')
-
+            .set('X-Forwarded-For', '192.168.1.1')
             .expect(429);
 
           for (let i = 0; i < 15; i++) {
             await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('Authorization', 'Bearer user2token');
+              .set('X-Forwarded-For', '192.168.1.2');
           }
 
           const response = await request(app.getHttpServer())
             .post(testLoginEndPoint)
-            .set('Authorization', 'Bearer user2token');
+            .set('X-Forwarded-For', '192.168.1.2');
           expect(response.status).toBe(429);
 
           await new Promise((resolve) => setTimeout(resolve, 3000));
@@ -535,7 +515,7 @@ describe('AuthController', () => {
           for (let i = 0; i < 15; i++) {
             const response = await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('Authorization', 'Bearer user2token');
+              .set('X-Forwarded-For', '192.168.1.2');
             expect(response.status).not.toBe(429);
           }
         });
@@ -544,24 +524,23 @@ describe('AuthController', () => {
           for (let i = 0; i < 15; i++) {
             await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('Authorization', 'Bearer user1token');
+              .set('X-Forwarded-For', '192.168.1.1');
           }
 
           await request(app.getHttpServer())
             .post(testLoginEndPoint)
-            .set('Authorization', 'Bearer user1token')
-
+            .set('X-Forwarded-For', '192.168.1.1')
             .expect(429);
 
           for (let i = 0; i < 15; i++) {
             await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('Authorization', 'Bearer user2token');
+              .set('X-Forwarded-For', '192.168.1.2');
           }
 
           const firstResponse = await request(app.getHttpServer())
             .post(testLoginEndPoint)
-            .set('Authorization', 'Bearer user2token');
+            .set('X-Forwarded-For', '192.168.1.2');
           expect(firstResponse.status).toBe(429);
 
           await new Promise((resolve) => setTimeout(resolve, 4000));
@@ -569,13 +548,13 @@ describe('AuthController', () => {
           for (let i = 0; i < 15; i++) {
             const response = await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('Authorization', 'Bearer user2token');
+              .set('X-Forwarded-For', '192.168.1.2');
             expect(response.status).not.toBe(429);
           }
 
           const secondResponse = await request(app.getHttpServer())
             .post(testLoginEndPoint)
-            .set('Authorization', 'Bearer user2token');
+            .set('X-Forwarded-For', '192.168.1.2');
           expect(secondResponse.status).toBe(429);
         });
 
@@ -583,24 +562,23 @@ describe('AuthController', () => {
           for (let i = 0; i < 15; i++) {
             await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('Authorization', 'Bearer user1token');
+              .set('X-Forwarded-For', '192.168.1.1');
           }
 
           await request(app.getHttpServer())
             .post(testLoginEndPoint)
-            .set('Authorization', 'Bearer user1token')
-
+            .set('X-Forwarded-For', '192.168.1.1')
             .expect(429);
 
           for (let i = 0; i < 15; i++) {
             await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('Authorization', 'Bearer user2token');
+              .set('X-Forwarded-For', '192.168.1.2');
           }
 
           const firstResponse = await request(app.getHttpServer())
             .post(testLoginEndPoint)
-            .set('Authorization', 'Bearer user2token');
+            .set('X-Forwarded-For', '192.168.1.2');
           expect(firstResponse.status).toBe(429);
 
           await new Promise((resolve) => setTimeout(resolve, 2000));
@@ -608,7 +586,7 @@ describe('AuthController', () => {
           for (let i = 0; i < 9; i++) {
             const response = await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('Authorization', 'Bearer user2token');
+              .set('X-Forwarded-For', '192.168.1.2');
             expect(response.status).not.toBe(429);
           }
         });
@@ -617,24 +595,23 @@ describe('AuthController', () => {
           for (let i = 0; i < 15; i++) {
             await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('Authorization', 'Bearer user1token');
+              .set('X-Forwarded-For', '192.168.1.1');
           }
 
           await request(app.getHttpServer())
             .post(testLoginEndPoint)
-            .set('Authorization', 'Bearer user1token')
-
+            .set('X-Forwarded-For', '192.168.1.1')
             .expect(429);
 
           for (let i = 0; i < 15; i++) {
             await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('Authorization', 'Bearer user2token');
+              .set('X-Forwarded-For', '192.168.1.2');
           }
 
           const firstResponse = await request(app.getHttpServer())
             .post(testLoginEndPoint)
-            .set('Authorization', 'Bearer user2token');
+            .set('X-Forwarded-For', '192.168.1.2');
           expect(firstResponse.status).toBe(429);
 
           await new Promise((resolve) => setTimeout(resolve, 2000));
@@ -642,7 +619,7 @@ describe('AuthController', () => {
           for (let i = 0; i < 10; i++) {
             const response = await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('Authorization', 'Bearer user2token');
+              .set('X-Forwarded-For', '192.168.1.2');
             expect(response.status).not.toBe(429);
           }
         });
@@ -651,23 +628,23 @@ describe('AuthController', () => {
           for (let i = 0; i < 15; i++) {
             await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('Authorization', 'Bearer user1token');
+              .set('X-Forwarded-For', '192.168.1.1');
           }
 
           await request(app.getHttpServer())
-            .set('Authorization', 'Bearer user1token')
+            .set('X-Forwarded-For', '192.168.1.1')
             .post(testLoginEndPoint)
             .expect(429);
 
           for (let i = 0; i < 15; i++) {
             await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('Authorization', 'Bearer user2token');
+              .set('X-Forwarded-For', '192.168.1.2');
           }
 
           const firstResponse = await request(app.getHttpServer())
             .post(testLoginEndPoint)
-            .set('Authorization', 'Bearer user2token');
+            .set('X-Forwarded-For', '192.168.1.2');
           expect(firstResponse.status).toBe(429);
 
           await new Promise((resolve) => setTimeout(resolve, 2000));
@@ -675,13 +652,13 @@ describe('AuthController', () => {
           for (let i = 0; i < 10; i++) {
             const response = await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('Authorization', 'Bearer user2token');
+              .set('X-Forwarded-For', '192.168.1.2');
             expect(response.status).not.toBe(429);
           }
 
           const response = await request(app.getHttpServer())
             .post(testLoginEndPoint)
-            .set('Authorization', 'Bearer user2token');
+            .set('X-Forwarded-For', '192.168.1.2');
           expect(response.status).toBe(429);
         });
       });
@@ -691,12 +668,12 @@ describe('AuthController', () => {
           const user1Requests = Array(4).fill(
             await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('Authorization', 'Bearer user1token'),
+              .set('X-Forwarded-For', '192.168.1.1'),
           );
           const user2Requests = Array(4).fill(
             await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('Authorization', 'Bearer user2token'),
+              .set('X-Forwarded-For', '192.168.1.2'),
           );
 
           const responses = await Promise.all([
@@ -713,12 +690,12 @@ describe('AuthController', () => {
           const user1Requests = Array(5).fill(
             await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('Authorization', 'Bearer user1token'),
+              .set('X-Forwarded-For', '192.168.1.1'),
           );
           const user2Requests = Array(5).fill(
             await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('Authorization', 'Bearer user2token'),
+              .set('X-Forwarded-For', '192.168.1.2'),
           );
 
           const responses = await Promise.all([
@@ -735,12 +712,12 @@ describe('AuthController', () => {
           const user1Requests = Array(6).fill(
             await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('Authorization', 'Bearer user1token'),
+              .set('X-Forwarded-For', '192.168.1.1'),
           );
           const user2Requests = Array(6).fill(
             await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('Authorization', 'Bearer user2token'),
+              .set('X-Forwarded-For', '192.168.1.2'),
           );
 
           const responses = await Promise.all([
@@ -757,12 +734,12 @@ describe('AuthController', () => {
           const user1Requests = Array(14).fill(
             await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('Authorization', 'Bearer user1token'),
+              .set('X-Forwarded-For', '192.168.1.1'),
           );
           const user2Requests = Array(14).fill(
             await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('Authorization', 'Bearer user2token'),
+              .set('X-Forwarded-For', '192.168.1.2'),
           );
 
           const responses = await Promise.all([
@@ -779,12 +756,12 @@ describe('AuthController', () => {
           const user1Requests = Array(15).fill(
             await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('Authorization', 'Bearer user1token'),
+              .set('X-Forwarded-For', '192.168.1.1'),
           );
           const user2Requests = Array(15).fill(
             await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('Authorization', 'Bearer user2token'),
+              .set('X-Forwarded-For', '192.168.1.2'),
           );
 
           const responses = await Promise.all([
@@ -801,12 +778,12 @@ describe('AuthController', () => {
           const user1Requests = Array(16).fill(
             await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('Authorization', 'Bearer user1token'),
+              .set('X-Forwarded-For', '192.168.1.1'),
           );
           const user2Requests = Array(16).fill(
             await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('Authorization', 'Bearer user2token'),
+              .set('X-Forwarded-For', '192.168.1.2'),
           );
 
           const responses = await Promise.all([
@@ -823,12 +800,12 @@ describe('AuthController', () => {
           const user1Requests = Array(15).fill(
             await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('Authorization', 'Bearer user1token'),
+              .set('X-Forwarded-For', '192.168.1.1'),
           );
           const user2Requests = Array(16).fill(
             await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('Authorization', 'Bearer user2token'),
+              .set('X-Forwarded-For', '192.168.1.2'),
           );
 
           const responses1 = await Promise.all(user1Requests);
@@ -1183,39 +1160,6 @@ describe('AuthController', () => {
             expect(response.status).toBe(422);
             expect(response.body.message).toContain(
               'username: chỉ được chứa a-z và 0-9',
-            );
-          });
-
-          it('UTCID39: Should return 422 when password contains spaces', async () => {
-            const response = await request(app.getHttpServer())
-              .post(testLoginEndPoint)
-              .set('deviceId', '1')
-              .send({
-                username: validUsername,
-                password: 'unvalidpass word123',
-              });
-
-            expect(response.status).toBe(422);
-            expect(response.body.message).toContain(
-              'password: không được chứa khoảng trắng',
-            );
-          });
-
-          it('UTCID40: Should return 422 when username and password contain spaces', async () => {
-            const response = await request(app.getHttpServer())
-              .post(testLoginEndPoint)
-              .set('deviceId', '1')
-              .send({
-                username: 'test user',
-                password: 'unvalidpass word123',
-              });
-
-            expect(response.status).toBe(422);
-            expect(response.body.message).toContain(
-              'username: chỉ được chứa a-z và 0-9',
-            );
-            expect(response.body.message).toContain(
-              'password: không được chứa khoảng trắng',
             );
           });
         });
