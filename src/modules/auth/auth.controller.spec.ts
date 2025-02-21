@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import * as request from 'supertest';
 import * as bcrypt from 'bcrypt';
+import { Redis } from 'ioredis';
 
 import { AppModule } from '../../app.module';
 import {
@@ -29,6 +30,8 @@ describe('AuthController', () => {
     const invalidPassword = INVALID_USER.password;
 
     describe('#ExceedThrottling', () => {
+      let redis: Redis;
+
       beforeAll(async () => {
         const moduleFixture: TestingModule = await Test.createTestingModule({
           imports: [AppModule],
@@ -36,11 +39,22 @@ describe('AuthController', () => {
 
         app = moduleFixture.createNestApplication();
 
+        redis = new Redis({
+          host: '127.0.0.1',
+          port: 6379,
+          commandTimeout: 5000,
+        });
+
         await app.init();
       });
 
       afterAll(async () => {
+        await redis.quit();
         await app.close();
+      });
+
+      afterEach(async () => {
+        await redis.flushall();
       });
 
       describe('#ExceedThrottling - Burst Remains', () => {
