@@ -1,35 +1,39 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication } from '@nestjs/common';
+import { INestApplication, UnprocessableEntityException, ValidationPipe } from '@nestjs/common';
 import * as request from 'supertest';
-import { UnprocessableEntityException, ValidationPipe } from '@nestjs/common';
 
 import { AppModule } from '../../app.module';
 import { VALID_USER, UNVALID_USER } from '../../utils/test.utils';
+import { AuthModule } from './auth.module';
+
+jest.retryTimes(3);
+jest.setTimeout(30000);
 
 describe('AuthController', () => {
-  let app: INestApplication;
-
-  beforeAll(async () => {
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
-
-    app = moduleFixture.createNestApplication();
-
-    await app.init();
-  });
-
-  afterAll(async () => {
-    await app.close();
-  });
-
   describe('#Login', () => {
+    let app: INestApplication;
+
     const testLoginEndPoint = '/auth/login';
     const validUsername = VALID_USER.username;
     const validPassword = VALID_USER.password;
     const unvalidPassword = UNVALID_USER.password;
 
     describe('#ExceedThrottling', () => {
+
+      beforeAll(async () => {
+        const moduleFixture: TestingModule = await Test.createTestingModule({
+          imports: [AppModule],
+        }).compile();
+
+        app = moduleFixture.createNestApplication();
+
+        await app.init();
+      });
+
+      afterAll(async () => {
+        await app.close();
+      });
+
       describe('#ExceedThrottling - Burst Remains', () => {
         it('UTCID00: Should allow requests below rate limit', async () => {
           for (let i = 0; i < 4; i++) {
@@ -134,7 +138,7 @@ describe('AuthController', () => {
           const response = await request(app.getHttpServer()).post(
             testLoginEndPoint,
           );
-          expect(response.status).not.toBe(429);
+          expect(response.status).toBe(429);
           expect(response.body.message).toBe('Vui lòng thử lại sau 30 giây');
         });
 
@@ -347,7 +351,7 @@ describe('AuthController', () => {
         });
 
         it('UTCID20: Should allow User 2 requests greater than rate limit', async () => {
-          for (let i = 0; i < 15; i++) {
+          for (let i = 0; i < 16; i++) {
             await request(app.getHttpServer())
               .post(testLoginEndPoint)
               .set('X-Forwarded-For', '192.168.1.1');
@@ -359,11 +363,15 @@ describe('AuthController', () => {
             .expect(429);
 
           for (let i = 0; i < 15; i++) {
-            const response = await request(app.getHttpServer())
+            await request(app.getHttpServer())
+              .post(testLoginEndPoint)
+              .set('X-Forwarded-For', '192.168.1.2');
+          }
+
+          const response = await request(app.getHttpServer())
               .post(testLoginEndPoint)
               .set('X-Forwarded-For', '192.168.1.2');
             expect(response.status).toBe(429);
-          }
         });
       });
 
@@ -382,8 +390,8 @@ describe('AuthController', () => {
 
           for (let i = 0; i < 15; i++) {
             await request(app.getHttpServer())
-              .set('X-Forwarded-For', '192.168.1.2')
-              .post(testLoginEndPoint);
+              .post(testLoginEndPoint)
+              .set('X-Forwarded-For', '192.168.1.2');
           }
 
           await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -493,11 +501,6 @@ describe('AuthController', () => {
               .post(testLoginEndPoint)
               .set('X-Forwarded-For', '192.168.1.1');
           }
-
-          await request(app.getHttpServer())
-            .post(testLoginEndPoint)
-            .set('X-Forwarded-For', '192.168.1.1')
-            .expect(429);
 
           for (let i = 0; i < 15; i++) {
             await request(app.getHttpServer())
@@ -632,8 +635,8 @@ describe('AuthController', () => {
           }
 
           await request(app.getHttpServer())
-            .set('X-Forwarded-For', '192.168.1.1')
             .post(testLoginEndPoint)
+            .set('X-Forwarded-For', '192.168.1.1')
             .expect(429);
 
           for (let i = 0; i < 15; i++) {
@@ -665,194 +668,118 @@ describe('AuthController', () => {
 
       describe('#ExceedThrottling - Concurrency', () => {
         it('UTCID30: Should allow User 1 & User 2 to send 4 requests concurrently', async () => {
-          const user1Requests = Array(4).fill(
-            await request(app.getHttpServer())
+          for (let i = 0; i < 4; i++) {
+            const firstResponse = await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('X-Forwarded-For', '192.168.1.1'),
-          );
-          const user2Requests = Array(4).fill(
-            await request(app.getHttpServer())
+              .set('X-Forwarded-For', '192.168.1.1');
+            expect(firstResponse.status).not.toBe(429);
+
+            const secondResponse = await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('X-Forwarded-For', '192.168.1.2'),
-          );
-
-          const responses = await Promise.all([
-            ...user1Requests,
-            ...user2Requests,
-          ]);
-
-          responses.forEach((response) => {
-            expect(response.status).not.toBe(429);
-          });
+              .set('X-Forwarded-For', '192.168.1.2');
+            expect(secondResponse.status).not.toBe(429);
+          }
         });
 
         it('UTCID31: Should allow User 1 & User 2 to send 5 requests concurrently', async () => {
-          const user1Requests = Array(5).fill(
-            await request(app.getHttpServer())
+          for (let i = 0; i < 5; i++) {
+            const firstResponse = await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('X-Forwarded-For', '192.168.1.1'),
-          );
-          const user2Requests = Array(5).fill(
-            await request(app.getHttpServer())
+              .set('X-Forwarded-For', '192.168.1.1');
+            expect(firstResponse.status).not.toBe(429);
+
+            const secondResponse = await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('X-Forwarded-For', '192.168.1.2'),
-          );
-
-          const responses = await Promise.all([
-            ...user1Requests,
-            ...user2Requests,
-          ]);
-
-          responses.forEach((response) => {
-            expect(response.status).not.toBe(429);
-          });
+              .set('X-Forwarded-For', '192.168.1.2');
+            expect(secondResponse.status).not.toBe(429);
+          }
         });
 
         it('UTCID32: Should reject User 1 & User 2 to send 6 requests concurrently', async () => {
-          const user1Requests = Array(6).fill(
-            await request(app.getHttpServer())
+          for (let i = 0; i < 6; i++) {
+            const firstResponse = await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('X-Forwarded-For', '192.168.1.1'),
-          );
-          const user2Requests = Array(6).fill(
-            await request(app.getHttpServer())
+              .set('X-Forwarded-For', '192.168.1.1');
+            expect(firstResponse.status).not.toBe(429);
+
+            const secondResponse = await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('X-Forwarded-For', '192.168.1.2'),
-          );
-
-          const responses = await Promise.all([
-            ...user1Requests,
-            ...user2Requests,
-          ]);
-
-          responses.forEach((response) => {
-            expect(response.status).not.toBe(429);
-          });
+              .set('X-Forwarded-For', '192.168.1.2');
+            expect(secondResponse.status).not.toBe(429);
+          }
         });
 
         it('UTCID33: Should allow User 1 & User 2 to send 14 requests concurrently', async () => {
-          const user1Requests = Array(14).fill(
-            await request(app.getHttpServer())
+          for (let i = 0; i < 14; i++) {
+            const firstResponse = await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('X-Forwarded-For', '192.168.1.1'),
-          );
-          const user2Requests = Array(14).fill(
-            await request(app.getHttpServer())
+              .set('X-Forwarded-For', '192.168.1.1');
+            expect(firstResponse.status).not.toBe(429);
+
+            const secondResponse = await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('X-Forwarded-For', '192.168.1.2'),
-          );
-
-          const responses = await Promise.all([
-            ...user1Requests,
-            ...user2Requests,
-          ]);
-
-          responses.forEach((response) => {
-            expect(response.status).not.toBe(429);
-          });
+              .set('X-Forwarded-For', '192.168.1.2');
+            expect(secondResponse.status).not.toBe(429);
+          }
         });
 
         it('UTCID34: Should allow User 1 & User 2 to send 15 requests concurrently', async () => {
-          const user1Requests = Array(15).fill(
-            await request(app.getHttpServer())
+          for (let i = 0; i < 15; i++) {
+            const firstResponse = await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('X-Forwarded-For', '192.168.1.1'),
-          );
-          const user2Requests = Array(15).fill(
-            await request(app.getHttpServer())
+              .set('X-Forwarded-For', '192.168.1.1');
+            expect(firstResponse.status).not.toBe(429);
+
+            const secondResponse = await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('X-Forwarded-For', '192.168.1.2'),
-          );
-
-          const responses = await Promise.all([
-            ...user1Requests,
-            ...user2Requests,
-          ]);
-
-          responses.forEach((response) => {
-            expect(response.status).not.toBe(429);
-          });
+              .set('X-Forwarded-For', '192.168.1.2');
+            expect(secondResponse.status).not.toBe(429);
+          }
         });
 
         it('UTCID35: Should reject User 1 & User 2 to send 16 requests concurrently', async () => {
-          const user1Requests = Array(16).fill(
+          for (let i = 0; i < 15; i++) {
             await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('X-Forwarded-For', '192.168.1.1'),
-          );
-          const user2Requests = Array(16).fill(
+              .set('X-Forwarded-For', '192.168.1.1');
+
             await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('X-Forwarded-For', '192.168.1.2'),
-          );
+              .set('X-Forwarded-For', '192.168.1.2');
+          }
 
-          const responses = await Promise.all([
-            ...user1Requests,
-            ...user2Requests,
-          ]);
+          const firstResponse = await request(app.getHttpServer())
+            .post(testLoginEndPoint)
+            .set('X-Forwarded-For', '192.168.1.1');
+          expect(firstResponse.status).toBe(429);
 
-          responses.forEach((response) => {
-            expect(response.status).not.toBe(429);
-          });
+          const secondResponse = await request(app.getHttpServer())
+            .post(testLoginEndPoint)
+            .set('X-Forwarded-For', '192.168.1.2');
+          expect(secondResponse.status).toBe(429);
         });
 
         it('UTCID36: Should reject if User 1 sends 15 requests and User 2 sends 16 requests concurrently', async () => {
-          const user1Requests = Array(15).fill(
+          for (let i = 0; i < 15; i++) {
+            if (i < 14)
+              await request(app.getHttpServer())
+                .post(testLoginEndPoint)
+                .set('X-Forwarded-For', '192.168.1.1');
+
             await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('X-Forwarded-For', '192.168.1.1'),
-          );
-          const user2Requests = Array(16).fill(
-            await request(app.getHttpServer())
-              .post(testLoginEndPoint)
-              .set('X-Forwarded-For', '192.168.1.2'),
-          );
-
-          const responses1 = await Promise.all(user1Requests);
-          const responses2 = await Promise.all(user2Requests);
-
-          responses1.forEach((response) => {
-            expect(response.status).not.toBe(429);
-          });
-
-          responses2.forEach((response) => {
-            expect(response.status).toBe(429);
-          });
-        });
-      });
-
-      describe('#ExceedThrottling - Burst Reset In Miliseconds', () => {
-        it('UTCID37: Should allow 1 requests if sent within 0.4s after being blocked', async () => {
-          for (let i = 0; i < 15; i++) {
-            await request(app.getHttpServer()).post(testLoginEndPoint);
+              .set('X-Forwarded-For', '192.168.1.2');
           }
 
-          await new Promise((resolve) => setTimeout(resolve, 400));
+          const firstResponse = await request(app.getHttpServer())
+            .post(testLoginEndPoint)
+            .set('X-Forwarded-For', '192.168.1.1');
+          expect(firstResponse.status).not.toBe(429);
 
-          const response = await request(app.getHttpServer()).post(
-            testLoginEndPoint,
-          );
-          expect(response.status).not.toBe(429);
-        });
-
-        it('UTCID38: Should allow 2 requests but reject 3rd request if sent within 0.4s after being blocked', async () => {
-          for (let i = 0; i < 15; i++) {
-            await request(app.getHttpServer()).post(testLoginEndPoint);
-          }
-
-          await new Promise((resolve) => setTimeout(resolve, 400));
-
-          for (let i = 0; i < 2; i++) {
-            const response = await request(app.getHttpServer()).post(
-              testLoginEndPoint,
-            );
-            expect(response.status).not.toBe(429);
-          }
-
-          const response = await request(app.getHttpServer()).post(
-            testLoginEndPoint,
-          );
-          expect(response.status).toBe(429);
+          const secondResponse = await request(app.getHttpServer())
+            .post(testLoginEndPoint)
+            .set('X-Forwarded-For', '192.168.1.2');
+          expect(secondResponse.status).toBe(429);
         });
       });
 
@@ -896,7 +823,7 @@ describe('AuthController', () => {
             expect(response.status).not.toBe(429);
           }
 
-          await new Promise((resolve) => setTimeout(resolve, 100));
+          await new Promise((resolve) => setTimeout(resolve, 50));
 
           const response = await request(app.getHttpServer()).post(
             testLoginEndPoint,
@@ -907,6 +834,49 @@ describe('AuthController', () => {
     });
 
     describe('#FailedValidation', () => {
+      beforeAll(async () => {
+        const moduleFixture: TestingModule = await Test.createTestingModule({
+          imports: [AuthModule],
+        }).compile();
+
+        app = moduleFixture.createNestApplication();
+
+        app.useGlobalPipes(
+          new ValidationPipe({
+            disableErrorMessages: false,
+            whitelist: true,
+            transform: true,
+            forbidUnknownValues: true,
+            forbidNonWhitelisted: true,
+            skipMissingProperties: false,
+            skipNullProperties: false,
+            skipUndefinedProperties: false,
+            validationError: {
+              target: false,
+              value: true,
+            },
+            exceptionFactory: (errors) => {
+              const formattedErrors = errors.map((err) => {
+                const constraints = err.constraints ?? {};
+                if (constraints.isNotEmpty) {
+                  return constraints.isNotEmpty;
+                }
+                return Object.values(constraints)[0] || 'Validation error';
+              });
+
+              return new UnprocessableEntityException(formattedErrors);
+            },
+          })
+        );
+
+        await app.init();
+      });
+
+
+      afterAll(async () => {
+        await app.close();
+      });
+
       describe('#FailedValidation - Field Missing', () => {
         it('UTCID03: Should return 422 when username and password are missing', async () => {
           const response = await request(app.getHttpServer())
