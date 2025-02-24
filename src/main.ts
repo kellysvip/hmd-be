@@ -2,38 +2,12 @@ import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
 import { AppModule } from './app.module';
-import { UnprocessableEntityException, ValidationPipe } from '@nestjs/common';
+import validationPipe from './validation-pipe';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  app.useGlobalPipes(
-    new ValidationPipe({
-      disableErrorMessages: false,
-      whitelist: true,
-      transform: true,
-      forbidUnknownValues: true,
-      forbidNonWhitelisted: true,
-      skipMissingProperties: false,
-      skipNullProperties: false,
-      skipUndefinedProperties: false,
-      validationError: {
-        target: false,
-        value: true,
-      },
-      exceptionFactory: (errors) => {
-        const formattedErrors = errors.map((err) => {
-          const constraints = err.constraints ?? {};
-          if (constraints.isNotEmpty) {
-            return constraints.isNotEmpty;
-          }
-          return Object.values(constraints)[0] || 'Validation error';
-        });
-
-        return new UnprocessableEntityException(formattedErrors);
-      },
-    }),
-  );
+  app.useGlobalPipes(validationPipe());
 
   const docConfig = new DocumentBuilder()
     .setTitle('HMD API Documentation')

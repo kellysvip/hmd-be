@@ -12,9 +12,6 @@ export class AuthDto {
   @IsNotEmpty({
     message: 'password: không được bỏ trống',
   })
-  @Matches(/^\S+$/, {
-    message: 'password: không được chứa khoảng trắng',
-  })
   @MinLength(12, {
     message: 'password: phải tối thiểu 12 kí tự',
   })

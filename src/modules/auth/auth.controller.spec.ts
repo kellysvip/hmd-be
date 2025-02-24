@@ -7,6 +7,8 @@ import {
 } from '@nestjs/common';
 import * as request from 'supertest';
 import * as bcrypt from 'bcrypt';
+import { Redis } from 'ioredis';
+import { JwtService } from '@nestjs/jwt';
 
 import { AppModule } from '../../app.module';
 import {
@@ -15,6 +17,9 @@ import {
   USER_NOTFOUND,
 } from '../../utils/test.utils';
 import { AuthModule } from './auth.module';
+import { AuthService } from './auth.service';
+import { User } from '@prisma/client';
+import { PrismaService } from '../../shared/prisma/prisma.service';
 
 jest.retryTimes(3);
 jest.setTimeout(30000);
@@ -29,6 +34,8 @@ describe('AuthController', () => {
     const invalidPassword = INVALID_USER.password;
 
     describe('#ExceedThrottling', () => {
+      let redis: Redis;
+
       beforeAll(async () => {
         const moduleFixture: TestingModule = await Test.createTestingModule({
           imports: [AppModule],
@@ -36,11 +43,22 @@ describe('AuthController', () => {
 
         app = moduleFixture.createNestApplication();
 
+        redis = new Redis({
+          host: '127.0.0.1',
+          port: 6379,
+          commandTimeout: 5000,
+        });
+
         await app.init();
       });
 
       afterAll(async () => {
+        await redis.quit();
         await app.close();
+      });
+
+      afterEach(async () => {
+        await redis.flushall();
       });
 
       describe('#ExceedThrottling - Burst Remains', () => {
@@ -1664,13 +1682,33 @@ describe('AuthController', () => {
     });
 
     describe('#WrongCredentials', () => {
-      let authService;
-      let prisma;
+      let authService: AuthService;
+      let prisma: PrismaService;
 
       beforeEach(async () => {
         const module: TestingModule = await Test.createTestingModule({
-          providers: [],
+          providers: [
+            AuthService,
+            {
+              provide: PrismaService,
+              useValue: {
+                user: {
+                  findUnique: jest.fn(),
+                  update: jest.fn(),
+                },
+              },
+            },
+            {
+              provide: JwtService,
+              useValue: {
+                signAsync: jest.fn().mockResolvedValue('mocked_jwt_token'),
+              },
+            },
+          ],
         }).compile();
+
+        authService = module.get<AuthService>(AuthService);
+        prisma = module.get<PrismaService>(PrismaService);
       });
 
       it('UTCID00: Should throw UnauthorizedException when username is not found', async () => {
@@ -1692,7 +1730,7 @@ describe('AuthController', () => {
           username: validUsername,
           password: await bcrypt.hash(invalidPassword, 10),
           loginAttempts: 0,
-        };
+        } as User;
 
         jest.spyOn(prisma.user, 'findUnique').mockResolvedValue(mockUser);
         jest.spyOn(bcrypt, 'compare').mockResolvedValue(false as never);
@@ -1723,7 +1761,9 @@ describe('AuthController', () => {
           password: await bcrypt.hash(validPassword, 10),
         };
 
-        jest.spyOn(prisma.user, 'findUnique').mockResolvedValue(mockUser);
+        jest
+          .spyOn(prisma.user, 'findUnique')
+          .mockResolvedValue(mockUser as User);
         jest.spyOn(bcrypt, 'compare').mockResolvedValue(true as never);
 
         const result = await authService.login({
