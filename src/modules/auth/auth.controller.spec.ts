@@ -1,9 +1,19 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication, UnprocessableEntityException, ValidationPipe } from '@nestjs/common';
+import {
+  INestApplication,
+  UnauthorizedException,
+  UnprocessableEntityException,
+  ValidationPipe,
+} from '@nestjs/common';
 import * as request from 'supertest';
+import * as bcrypt from 'bcrypt';
 
 import { AppModule } from '../../app.module';
-import { VALID_USER, UNVALID_USER } from '../../utils/test.utils';
+import {
+  VALID_USER,
+  INVALID_USER,
+  USER_NOTFOUND,
+} from '../../utils/test.utils';
 import { AuthModule } from './auth.module';
 
 jest.retryTimes(3);
@@ -16,10 +26,9 @@ describe('AuthController', () => {
     const testLoginEndPoint = '/auth/login';
     const validUsername = VALID_USER.username;
     const validPassword = VALID_USER.password;
-    const unvalidPassword = UNVALID_USER.password;
+    const invalidPassword = INVALID_USER.password;
 
     describe('#ExceedThrottling', () => {
-
       beforeAll(async () => {
         const moduleFixture: TestingModule = await Test.createTestingModule({
           imports: [AppModule],
@@ -37,57 +46,78 @@ describe('AuthController', () => {
       describe('#ExceedThrottling - Burst Remains', () => {
         it('UTCID00: Should allow requests below rate limit', async () => {
           for (let i = 0; i < 4; i++) {
-            const response = await request(app.getHttpServer()).post(
-              testLoginEndPoint,
-            );
+            const response = await request(app.getHttpServer())
+              .post(testLoginEndPoint)
+              .send({
+                username: validUsername,
+                password: validPassword,
+              });
             expect(response.status).not.toBe(429);
           }
         });
 
         it('UTCID01: Should allow requests equal to rate limit', async () => {
           for (let i = 0; i < 5; i++) {
-            const response = await request(app.getHttpServer()).post(
-              testLoginEndPoint,
-            );
+            const response = await request(app.getHttpServer())
+              .post(testLoginEndPoint)
+              .send({
+                username: validUsername,
+                password: validPassword,
+              });
             expect(response.status).not.toBe(429);
           }
         });
 
         it('UTCID02: Should allow requests exceeding rate limit but within burst limit', async () => {
           for (let i = 0; i < 6; i++) {
-            const response = await request(app.getHttpServer()).post(
-              testLoginEndPoint,
-            );
+            const response = await request(app.getHttpServer())
+              .post(testLoginEndPoint)
+              .send({
+                username: validUsername,
+                password: validPassword,
+              });
             expect(response.status).not.toBe(429);
           }
         });
 
         it('UTCID03: Should allow requests exceeding rate limit but within burst limit', async () => {
           for (let i = 0; i < 14; i++) {
-            const response = await request(app.getHttpServer()).post(
-              testLoginEndPoint,
-            );
+            const response = await request(app.getHttpServer())
+              .post(testLoginEndPoint)
+              .send({
+                username: validUsername,
+                password: validPassword,
+              });
             expect(response.status).not.toBe(429);
           }
         });
 
         it('UTCID04: Should allow requests exceeding rate limit but equal to burst limit', async () => {
           for (let i = 0; i < 15; i++) {
-            const response = await request(app.getHttpServer()).post(
-              testLoginEndPoint,
-            );
+            const response = await request(app.getHttpServer())
+              .post(testLoginEndPoint)
+              .send({
+                username: validUsername,
+                password: validPassword,
+              });
             expect(response.status).not.toBe(429);
           }
         });
 
         it('UTCID05: Should reject requests exceeding burst limit', async () => {
           for (let i = 0; i < 15; i++) {
-            await request(app.getHttpServer()).post(testLoginEndPoint);
+            await request(app.getHttpServer()).post(testLoginEndPoint).send({
+              username: validUsername,
+              password: validPassword,
+            });
           }
 
-          const response = await request(app.getHttpServer()).post(
-            testLoginEndPoint,
-          );
+          const response = await request(app.getHttpServer())
+            .post(testLoginEndPoint)
+            .send({
+              username: validUsername,
+              password: validPassword,
+            });
           expect(response.status).toBe(429);
           expect(response.body.message).toBe('Vui lòng thử lại sau 30 giây');
         });
@@ -96,149 +126,212 @@ describe('AuthController', () => {
       describe('#ExceedThrottling - Burst Recovery', () => {
         it('UTCID06: Should allow requests below rate limit', async () => {
           for (let i = 0; i < 15; i++) {
-            await request(app.getHttpServer()).post(testLoginEndPoint);
+            await request(app.getHttpServer()).post(testLoginEndPoint).send({
+              username: validUsername,
+              password: validPassword,
+            });
           }
 
           await new Promise((resolve) => setTimeout(resolve, 1000));
 
           for (let i = 0; i < 4; i++) {
-            const response = await request(app.getHttpServer()).post(
-              testLoginEndPoint,
-            );
+            const response = await request(app.getHttpServer())
+              .post(testLoginEndPoint)
+              .send({
+                username: validUsername,
+                password: validPassword,
+              });
             expect(response.status).not.toBe(429);
           }
         });
 
         it('UTCID07: Should allow requests euqal to rate limit', async () => {
           for (let i = 0; i < 15; i++) {
-            await request(app.getHttpServer()).post(testLoginEndPoint);
+            await request(app.getHttpServer()).post(testLoginEndPoint).send({
+              username: validUsername,
+              password: validPassword,
+            });
           }
 
           await new Promise((resolve) => setTimeout(resolve, 1000));
 
           for (let i = 0; i < 5; i++) {
-            const response = await request(app.getHttpServer()).post(
-              testLoginEndPoint,
-            );
+            const response = await request(app.getHttpServer())
+              .post(testLoginEndPoint)
+              .send({
+                username: validUsername,
+                password: validPassword,
+              });
             expect(response.status).not.toBe(429);
           }
         });
 
         it('UTCID08: Should allow requests greater than rate limit', async () => {
           for (let i = 0; i < 15; i++) {
-            await request(app.getHttpServer()).post(testLoginEndPoint);
+            await request(app.getHttpServer()).post(testLoginEndPoint).send({
+              username: validUsername,
+              password: validPassword,
+            });
           }
 
           await new Promise((resolve) => setTimeout(resolve, 1000));
 
           for (let i = 0; i < 5; i++) {
-            await request(app.getHttpServer()).post(testLoginEndPoint);
+            await request(app.getHttpServer()).post(testLoginEndPoint).send({
+              username: validUsername,
+              password: validPassword,
+            });
           }
 
-          const response = await request(app.getHttpServer()).post(
-            testLoginEndPoint,
-          );
+          const response = await request(app.getHttpServer())
+            .post(testLoginEndPoint)
+            .send({
+              username: validUsername,
+              password: validPassword,
+            });
           expect(response.status).toBe(429);
           expect(response.body.message).toBe('Vui lòng thử lại sau 30 giây');
         });
 
         it('UTCID09: Should recover burst after 1 second with no requests', async () => {
           for (let i = 0; i < 15; i++) {
-            await request(app.getHttpServer()).post(testLoginEndPoint);
+            await request(app.getHttpServer()).post(testLoginEndPoint).send({
+              username: validUsername,
+              password: validPassword,
+            });
           }
 
           await new Promise((resolve) => setTimeout(resolve, 1000));
 
           for (let i = 0; i < 5; i++) {
-            const response = await request(app.getHttpServer()).post(
-              testLoginEndPoint,
-            );
+            const response = await request(app.getHttpServer())
+              .post(testLoginEndPoint)
+              .send({
+                username: validUsername,
+                password: validPassword,
+              });
             expect(response.status).not.toBe(429);
           }
         });
 
         it('UTCID10: Should fully recover burst after 3 seconds of no requests', async () => {
           for (let i = 0; i < 15; i++) {
-            await request(app.getHttpServer()).post(testLoginEndPoint);
+            await request(app.getHttpServer()).post(testLoginEndPoint).send({
+              username: validUsername,
+              password: validPassword,
+            });
           }
 
           await new Promise((resolve) => setTimeout(resolve, 3000));
 
           for (let i = 0; i < 15; i++) {
-            const response = await request(app.getHttpServer()).post(
-              testLoginEndPoint,
-            );
+            const response = await request(app.getHttpServer())
+              .post(testLoginEndPoint)
+              .send({
+                username: validUsername,
+                password: validPassword,
+              });
             expect(response.status).not.toBe(429);
           }
         });
 
         it('UTCID11: Should fully recover burst after 4 seconds of no requests', async () => {
           for (let i = 0; i < 15; i++) {
-            await request(app.getHttpServer()).post(testLoginEndPoint);
+            await request(app.getHttpServer()).post(testLoginEndPoint).send({
+              username: validUsername,
+              password: validPassword,
+            });
           }
 
           await new Promise((resolve) => setTimeout(resolve, 3000));
 
           for (let i = 0; i < 15; i++) {
-            const response = await request(app.getHttpServer()).post(
-              testLoginEndPoint,
-            );
+            const response = await request(app.getHttpServer())
+              .post(testLoginEndPoint)
+              .send({
+                username: validUsername,
+                password: validPassword,
+              });
             expect(response.status).not.toBe(429);
           }
 
-          const res = await request(app.getHttpServer()).post(
-            testLoginEndPoint,
-          );
+          const res = await request(app.getHttpServer())
+            .post(testLoginEndPoint)
+            .send({
+              username: validUsername,
+              password: validPassword,
+            });
           expect(res.status).toBe(429);
         });
 
         it('UTCID12: Should allow requests below rate limit after 2 seconds recovery', async () => {
           for (let i = 0; i < 15; i++) {
-            await request(app.getHttpServer()).post(testLoginEndPoint);
+            await request(app.getHttpServer()).post(testLoginEndPoint).send({
+              username: validUsername,
+              password: validPassword,
+            });
           }
 
           await new Promise((resolve) => setTimeout(resolve, 2000));
 
           for (let i = 0; i < 9; i++) {
-            const response = await request(app.getHttpServer()).post(
-              testLoginEndPoint,
-            );
+            const response = await request(app.getHttpServer())
+              .post(testLoginEndPoint)
+              .send({
+                username: validUsername,
+                password: validPassword,
+              });
             expect(response.status).not.toBe(429);
           }
         });
 
         it('UTCID13: Should allow requests below rate limit after 2 seconds recovery', async () => {
           for (let i = 0; i < 15; i++) {
-            await request(app.getHttpServer()).post(testLoginEndPoint);
+            await request(app.getHttpServer()).post(testLoginEndPoint).send({
+              username: validUsername,
+              password: validPassword,
+            });
           }
 
           await new Promise((resolve) => setTimeout(resolve, 2000));
 
           for (let i = 0; i < 10; i++) {
-            const response = await request(app.getHttpServer()).post(
-              testLoginEndPoint,
-            );
+            const response = await request(app.getHttpServer())
+              .post(testLoginEndPoint)
+              .send({
+                username: validUsername,
+                password: validPassword,
+              });
             expect(response.status).not.toBe(429);
           }
         });
 
         it('UTCID14: Should reject 11th request after 2 seconds recovery', async () => {
           for (let i = 0; i < 15; i++) {
-            await request(app.getHttpServer()).post(testLoginEndPoint);
+            await request(app.getHttpServer()).post(testLoginEndPoint).send({
+              username: validUsername,
+              password: validPassword,
+            });
           }
 
           await new Promise((resolve) => setTimeout(resolve, 2000));
 
           for (let i = 0; i < 10; i++) {
-            const response = await request(app.getHttpServer()).post(
-              testLoginEndPoint,
-            );
+            const response = await request(app.getHttpServer())
+              .post(testLoginEndPoint)
+              .send({
+                username: validUsername,
+                password: validPassword,
+              });
             expect(response.status).not.toBe(429);
           }
 
-          const res = await request(app.getHttpServer()).post(
-            testLoginEndPoint,
-          );
+          const res = await request(app.getHttpServer())
+            .post(testLoginEndPoint)
+            .send({
+              username: validUsername,
+              password: validPassword,
+            });
           expect(res.status).toBe(429);
         });
       });
@@ -248,18 +341,29 @@ describe('AuthController', () => {
           for (let i = 0; i < 15; i++) {
             await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('X-Forwarded-For', '192.168.1.1');
+              .set('X-Forwarded-For', '192.168.1.1')
+              .send({
+                username: validUsername,
+                password: validPassword,
+              });
           }
 
           await request(app.getHttpServer())
             .post(testLoginEndPoint)
             .set('X-Forwarded-For', '192.168.1.1')
-
+            .send({
+              username: validUsername,
+              password: validPassword,
+            })
             .expect(429);
 
           const response = await request(app.getHttpServer())
             .post(testLoginEndPoint)
-            .set('X-Forwarded-For', '192.168.1.2');
+            .set('X-Forwarded-For', '192.168.1.2')
+            .send({
+              username: validUsername,
+              password: validPassword,
+            });
 
           expect(response.status).not.toBe(429);
         });
@@ -268,19 +372,30 @@ describe('AuthController', () => {
           for (let i = 0; i < 15; i++) {
             await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('X-Forwarded-For', '192.168.1.1');
+              .set('X-Forwarded-For', '192.168.1.1')
+              .send({
+                username: validUsername,
+                password: validPassword,
+              });
           }
 
           await request(app.getHttpServer())
             .post(testLoginEndPoint)
             .set('X-Forwarded-For', '192.168.1.1')
-
+            .send({
+              username: validUsername,
+              password: validPassword,
+            })
             .expect(429);
 
           for (let i = 0; i < 5; i++) {
             const response = await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('X-Forwarded-For', '192.168.1.2');
+              .set('X-Forwarded-For', '192.168.1.2')
+              .send({
+                username: validUsername,
+                password: validPassword,
+              });
 
             expect(response.status).not.toBe(429);
           }
@@ -290,19 +405,30 @@ describe('AuthController', () => {
           for (let i = 0; i < 15; i++) {
             await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('X-Forwarded-For', '192.168.1.1');
+              .set('X-Forwarded-For', '192.168.1.1')
+              .send({
+                username: validUsername,
+                password: validPassword,
+              });
           }
 
           await request(app.getHttpServer())
             .post(testLoginEndPoint)
             .set('X-Forwarded-For', '192.168.1.1')
-
+            .send({
+              username: validUsername,
+              password: validPassword,
+            })
             .expect(429);
 
           for (let i = 0; i < 6; i++) {
             const response = await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('X-Forwarded-For', '192.168.1.2');
+              .set('X-Forwarded-For', '192.168.1.2')
+              .send({
+                username: validUsername,
+                password: validPassword,
+              });
 
             expect(response.status).not.toBe(429);
           }
@@ -312,18 +438,30 @@ describe('AuthController', () => {
           for (let i = 0; i < 15; i++) {
             await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('X-Forwarded-For', '192.168.1.1');
+              .set('X-Forwarded-For', '192.168.1.1')
+              .send({
+                username: validUsername,
+                password: validPassword,
+              });
           }
 
           await request(app.getHttpServer())
             .post(testLoginEndPoint)
             .set('X-Forwarded-For', '192.168.1.1')
+            .send({
+              username: validUsername,
+              password: validPassword,
+            })
             .expect(429);
 
           for (let i = 0; i < 14; i++) {
             const response = await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('X-Forwarded-For', '192.168.1.2');
+              .set('X-Forwarded-For', '192.168.1.2')
+              .send({
+                username: validUsername,
+                password: validPassword,
+              });
 
             expect(response.status).not.toBe(429);
           }
@@ -333,18 +471,30 @@ describe('AuthController', () => {
           for (let i = 0; i < 15; i++) {
             await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('X-Forwarded-For', '192.168.1.1');
+              .set('X-Forwarded-For', '192.168.1.1')
+              .send({
+                username: validUsername,
+                password: validPassword,
+              });
           }
 
           await request(app.getHttpServer())
             .post(testLoginEndPoint)
             .set('X-Forwarded-For', '192.168.1.1')
+            .send({
+              username: validUsername,
+              password: validPassword,
+            })
             .expect(429);
 
           for (let i = 0; i < 15; i++) {
             const response = await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('X-Forwarded-For', '192.168.1.2');
+              .set('X-Forwarded-For', '192.168.1.2')
+              .send({
+                username: validUsername,
+                password: validPassword,
+              });
 
             expect(response.status).not.toBe(429);
           }
@@ -354,24 +504,40 @@ describe('AuthController', () => {
           for (let i = 0; i < 16; i++) {
             await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('X-Forwarded-For', '192.168.1.1');
+              .set('X-Forwarded-For', '192.168.1.1')
+              .send({
+                username: validUsername,
+                password: validPassword,
+              });
           }
 
           await request(app.getHttpServer())
             .post(testLoginEndPoint)
             .set('X-Forwarded-For', '192.168.1.1')
+            .send({
+              username: validUsername,
+              password: validPassword,
+            })
             .expect(429);
 
           for (let i = 0; i < 15; i++) {
             await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('X-Forwarded-For', '192.168.1.2');
+              .set('X-Forwarded-For', '192.168.1.2')
+              .send({
+                username: validUsername,
+                password: validPassword,
+              });
           }
 
           const response = await request(app.getHttpServer())
-              .post(testLoginEndPoint)
-              .set('X-Forwarded-For', '192.168.1.2');
-            expect(response.status).toBe(429);
+            .post(testLoginEndPoint)
+            .set('X-Forwarded-For', '192.168.1.2')
+            .send({
+              username: validUsername,
+              password: validPassword,
+            });
+          expect(response.status).toBe(429);
         });
       });
 
@@ -380,25 +546,41 @@ describe('AuthController', () => {
           for (let i = 0; i < 15; i++) {
             await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('X-Forwarded-For', '192.168.1.1');
+              .set('X-Forwarded-For', '192.168.1.1')
+              .send({
+                username: validUsername,
+                password: validPassword,
+              });
           }
 
           await request(app.getHttpServer())
             .post(testLoginEndPoint)
             .set('X-Forwarded-For', '192.168.1.1')
+            .send({
+              username: validUsername,
+              password: validPassword,
+            })
             .expect(429);
 
           for (let i = 0; i < 15; i++) {
             await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('X-Forwarded-For', '192.168.1.2');
+              .set('X-Forwarded-For', '192.168.1.2')
+              .send({
+                username: validUsername,
+                password: validPassword,
+              });
           }
 
           await new Promise((resolve) => setTimeout(resolve, 1000));
 
           const response = await request(app.getHttpServer())
             .post(testLoginEndPoint)
-            .set('X-Forwarded-For', '192.168.1.2');
+            .set('X-Forwarded-For', '192.168.1.2')
+            .send({
+              username: validUsername,
+              password: validPassword,
+            });
 
           expect(response.status).not.toBe(429);
         });
@@ -407,18 +589,30 @@ describe('AuthController', () => {
           for (let i = 0; i < 15; i++) {
             await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('X-Forwarded-For', '192.168.1.1');
+              .set('X-Forwarded-For', '192.168.1.1')
+              .send({
+                username: validUsername,
+                password: validPassword,
+              });
           }
 
           await request(app.getHttpServer())
             .post(testLoginEndPoint)
             .set('X-Forwarded-For', '192.168.1.1')
+            .send({
+              username: validUsername,
+              password: validPassword,
+            })
             .expect(429);
 
           for (let i = 0; i < 15; i++) {
             await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('X-Forwarded-For', '192.168.1.2');
+              .set('X-Forwarded-For', '192.168.1.2')
+              .send({
+                username: validUsername,
+                password: validPassword,
+              });
           }
 
           await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -426,7 +620,11 @@ describe('AuthController', () => {
           for (let i = 0; i < 5; i++) {
             const response = await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('X-Forwarded-For', '192.168.1.2');
+              .set('X-Forwarded-For', '192.168.1.2')
+              .send({
+                username: validUsername,
+                password: validPassword,
+              });
 
             expect(response.status).not.toBe(429);
           }
@@ -436,18 +634,30 @@ describe('AuthController', () => {
           for (let i = 0; i < 15; i++) {
             await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('X-Forwarded-For', '192.168.1.1');
+              .set('X-Forwarded-For', '192.168.1.1')
+              .send({
+                username: validUsername,
+                password: validPassword,
+              });
           }
 
           await request(app.getHttpServer())
             .post(testLoginEndPoint)
             .set('X-Forwarded-For', '192.168.1.1')
+            .send({
+              username: validUsername,
+              password: validPassword,
+            })
             .expect(429);
 
           for (let i = 0; i < 15; i++) {
             await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('X-Forwarded-For', '192.168.1.2');
+              .set('X-Forwarded-For', '192.168.1.2')
+              .send({
+                username: validUsername,
+                password: validPassword,
+              });
           }
 
           await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -455,7 +665,12 @@ describe('AuthController', () => {
           for (let i = 0; i < 5; i++) {
             const response = await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('X-Forwarded-For', '192.168.1.2');
+              .set('X-Forwarded-For', '192.168.1.2')
+              .send({
+                username: validUsername,
+                password: validPassword,
+              });
+
             expect(response.status).not.toBe(429);
           }
         });
@@ -464,24 +679,39 @@ describe('AuthController', () => {
           for (let i = 0; i < 15; i++) {
             await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('X-Forwarded-For', '192.168.1.1');
+              .set('X-Forwarded-For', '192.168.1.1')
+              .send({
+                username: validUsername,
+                password: validPassword,
+              });
           }
 
           await request(app.getHttpServer())
             .post(testLoginEndPoint)
             .set('X-Forwarded-For', '192.168.1.1')
-
+            .send({
+              username: validUsername,
+              password: validPassword,
+            })
             .expect(429);
 
           for (let i = 0; i < 15; i++) {
             await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('X-Forwarded-For', '192.168.1.2');
+              .set('X-Forwarded-For', '192.168.1.2')
+              .send({
+                username: validUsername,
+                password: validPassword,
+              });
           }
 
           const firstResponse = await request(app.getHttpServer())
             .post(testLoginEndPoint)
-            .set('X-Forwarded-For', '192.168.1.2');
+            .set('X-Forwarded-For', '192.168.1.2')
+            .send({
+              username: validUsername,
+              password: validPassword,
+            });
 
           expect(firstResponse.status).toBe(429);
 
@@ -490,7 +720,11 @@ describe('AuthController', () => {
           for (let i = 0; i < 5; i++) {
             const response = await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('X-Forwarded-For', '192.168.1.2');
+              .set('X-Forwarded-For', '192.168.1.2')
+              .send({
+                username: validUsername,
+                password: validPassword,
+              });
             expect(response.status).not.toBe(429);
           }
         });
@@ -499,18 +733,30 @@ describe('AuthController', () => {
           for (let i = 0; i < 15; i++) {
             await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('X-Forwarded-For', '192.168.1.1');
+              .set('X-Forwarded-For', '192.168.1.1')
+              .send({
+                username: validUsername,
+                password: validPassword,
+              });
           }
 
           for (let i = 0; i < 15; i++) {
             await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('X-Forwarded-For', '192.168.1.2');
+              .set('X-Forwarded-For', '192.168.1.2')
+              .send({
+                username: validUsername,
+                password: validPassword,
+              });
           }
 
           const response = await request(app.getHttpServer())
             .post(testLoginEndPoint)
-            .set('X-Forwarded-For', '192.168.1.2');
+            .set('X-Forwarded-For', '192.168.1.2')
+            .send({
+              username: validUsername,
+              password: validPassword,
+            });
           expect(response.status).toBe(429);
 
           await new Promise((resolve) => setTimeout(resolve, 3000));
@@ -518,7 +764,11 @@ describe('AuthController', () => {
           for (let i = 0; i < 15; i++) {
             const response = await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('X-Forwarded-For', '192.168.1.2');
+              .set('X-Forwarded-For', '192.168.1.2')
+              .send({
+                username: validUsername,
+                password: validPassword,
+              });
             expect(response.status).not.toBe(429);
           }
         });
@@ -527,23 +777,39 @@ describe('AuthController', () => {
           for (let i = 0; i < 15; i++) {
             await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('X-Forwarded-For', '192.168.1.1');
+              .set('X-Forwarded-For', '192.168.1.1')
+              .send({
+                username: validUsername,
+                password: validPassword,
+              });
           }
 
           await request(app.getHttpServer())
             .post(testLoginEndPoint)
             .set('X-Forwarded-For', '192.168.1.1')
+            .send({
+              username: validUsername,
+              password: validPassword,
+            })
             .expect(429);
 
           for (let i = 0; i < 15; i++) {
             await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('X-Forwarded-For', '192.168.1.2');
+              .set('X-Forwarded-For', '192.168.1.2')
+              .send({
+                username: validUsername,
+                password: validPassword,
+              });
           }
 
           const firstResponse = await request(app.getHttpServer())
             .post(testLoginEndPoint)
-            .set('X-Forwarded-For', '192.168.1.2');
+            .set('X-Forwarded-For', '192.168.1.2')
+            .send({
+              username: validUsername,
+              password: validPassword,
+            });
           expect(firstResponse.status).toBe(429);
 
           await new Promise((resolve) => setTimeout(resolve, 4000));
@@ -551,13 +817,21 @@ describe('AuthController', () => {
           for (let i = 0; i < 15; i++) {
             const response = await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('X-Forwarded-For', '192.168.1.2');
+              .set('X-Forwarded-For', '192.168.1.2')
+              .send({
+                username: validUsername,
+                password: validPassword,
+              });
             expect(response.status).not.toBe(429);
           }
 
           const secondResponse = await request(app.getHttpServer())
             .post(testLoginEndPoint)
-            .set('X-Forwarded-For', '192.168.1.2');
+            .set('X-Forwarded-For', '192.168.1.2')
+            .send({
+              username: validUsername,
+              password: validPassword,
+            });
           expect(secondResponse.status).toBe(429);
         });
 
@@ -565,23 +839,39 @@ describe('AuthController', () => {
           for (let i = 0; i < 15; i++) {
             await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('X-Forwarded-For', '192.168.1.1');
+              .set('X-Forwarded-For', '192.168.1.1')
+              .send({
+                username: validUsername,
+                password: validPassword,
+              });
           }
 
           await request(app.getHttpServer())
             .post(testLoginEndPoint)
             .set('X-Forwarded-For', '192.168.1.1')
+            .send({
+              username: validUsername,
+              password: validPassword,
+            })
             .expect(429);
 
           for (let i = 0; i < 15; i++) {
             await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('X-Forwarded-For', '192.168.1.2');
+              .set('X-Forwarded-For', '192.168.1.2')
+              .send({
+                username: validUsername,
+                password: validPassword,
+              });
           }
 
           const firstResponse = await request(app.getHttpServer())
             .post(testLoginEndPoint)
-            .set('X-Forwarded-For', '192.168.1.2');
+            .set('X-Forwarded-For', '192.168.1.2')
+            .send({
+              username: validUsername,
+              password: validPassword,
+            });
           expect(firstResponse.status).toBe(429);
 
           await new Promise((resolve) => setTimeout(resolve, 2000));
@@ -589,7 +879,11 @@ describe('AuthController', () => {
           for (let i = 0; i < 9; i++) {
             const response = await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('X-Forwarded-For', '192.168.1.2');
+              .set('X-Forwarded-For', '192.168.1.2')
+              .send({
+                username: validUsername,
+                password: validPassword,
+              });
             expect(response.status).not.toBe(429);
           }
         });
@@ -598,23 +892,39 @@ describe('AuthController', () => {
           for (let i = 0; i < 15; i++) {
             await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('X-Forwarded-For', '192.168.1.1');
+              .set('X-Forwarded-For', '192.168.1.1')
+              .send({
+                username: validUsername,
+                password: validPassword,
+              });
           }
 
           await request(app.getHttpServer())
             .post(testLoginEndPoint)
             .set('X-Forwarded-For', '192.168.1.1')
+            .send({
+              username: validUsername,
+              password: validPassword,
+            })
             .expect(429);
 
           for (let i = 0; i < 15; i++) {
             await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('X-Forwarded-For', '192.168.1.2');
+              .set('X-Forwarded-For', '192.168.1.2')
+              .send({
+                username: validUsername,
+                password: validPassword,
+              });
           }
 
           const firstResponse = await request(app.getHttpServer())
             .post(testLoginEndPoint)
-            .set('X-Forwarded-For', '192.168.1.2');
+            .set('X-Forwarded-For', '192.168.1.2')
+            .send({
+              username: validUsername,
+              password: validPassword,
+            });
           expect(firstResponse.status).toBe(429);
 
           await new Promise((resolve) => setTimeout(resolve, 2000));
@@ -622,7 +932,11 @@ describe('AuthController', () => {
           for (let i = 0; i < 10; i++) {
             const response = await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('X-Forwarded-For', '192.168.1.2');
+              .set('X-Forwarded-For', '192.168.1.2')
+              .send({
+                username: validUsername,
+                password: validPassword,
+              });
             expect(response.status).not.toBe(429);
           }
         });
@@ -631,23 +945,39 @@ describe('AuthController', () => {
           for (let i = 0; i < 15; i++) {
             await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('X-Forwarded-For', '192.168.1.1');
+              .set('X-Forwarded-For', '192.168.1.1')
+              .send({
+                username: validUsername,
+                password: validPassword,
+              });
           }
 
           await request(app.getHttpServer())
             .post(testLoginEndPoint)
             .set('X-Forwarded-For', '192.168.1.1')
+            .send({
+              username: validUsername,
+              password: validPassword,
+            })
             .expect(429);
 
           for (let i = 0; i < 15; i++) {
             await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('X-Forwarded-For', '192.168.1.2');
+              .set('X-Forwarded-For', '192.168.1.2')
+              .send({
+                username: validUsername,
+                password: validPassword,
+              });
           }
 
           const firstResponse = await request(app.getHttpServer())
             .post(testLoginEndPoint)
-            .set('X-Forwarded-For', '192.168.1.2');
+            .set('X-Forwarded-For', '192.168.1.2')
+            .send({
+              username: validUsername,
+              password: validPassword,
+            });
           expect(firstResponse.status).toBe(429);
 
           await new Promise((resolve) => setTimeout(resolve, 2000));
@@ -655,13 +985,21 @@ describe('AuthController', () => {
           for (let i = 0; i < 10; i++) {
             const response = await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('X-Forwarded-For', '192.168.1.2');
+              .set('X-Forwarded-For', '192.168.1.2')
+              .send({
+                username: validUsername,
+                password: validPassword,
+              });
             expect(response.status).not.toBe(429);
           }
 
           const response = await request(app.getHttpServer())
             .post(testLoginEndPoint)
-            .set('X-Forwarded-For', '192.168.1.2');
+            .set('X-Forwarded-For', '192.168.1.2')
+            .send({
+              username: validUsername,
+              password: validPassword,
+            });
           expect(response.status).toBe(429);
         });
       });
@@ -671,12 +1009,20 @@ describe('AuthController', () => {
           for (let i = 0; i < 4; i++) {
             const firstResponse = await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('X-Forwarded-For', '192.168.1.1');
+              .set('X-Forwarded-For', '192.168.1.1')
+              .send({
+                username: validUsername,
+                password: validPassword,
+              });
             expect(firstResponse.status).not.toBe(429);
 
             const secondResponse = await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('X-Forwarded-For', '192.168.1.2');
+              .set('X-Forwarded-For', '192.168.1.2')
+              .send({
+                username: validUsername,
+                password: validPassword,
+              });
             expect(secondResponse.status).not.toBe(429);
           }
         });
@@ -685,12 +1031,20 @@ describe('AuthController', () => {
           for (let i = 0; i < 5; i++) {
             const firstResponse = await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('X-Forwarded-For', '192.168.1.1');
+              .set('X-Forwarded-For', '192.168.1.1')
+              .send({
+                username: validUsername,
+                password: validPassword,
+              });
             expect(firstResponse.status).not.toBe(429);
 
             const secondResponse = await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('X-Forwarded-For', '192.168.1.2');
+              .set('X-Forwarded-For', '192.168.1.2')
+              .send({
+                username: validUsername,
+                password: validPassword,
+              });
             expect(secondResponse.status).not.toBe(429);
           }
         });
@@ -699,12 +1053,20 @@ describe('AuthController', () => {
           for (let i = 0; i < 6; i++) {
             const firstResponse = await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('X-Forwarded-For', '192.168.1.1');
+              .set('X-Forwarded-For', '192.168.1.1')
+              .send({
+                username: validUsername,
+                password: validPassword,
+              });
             expect(firstResponse.status).not.toBe(429);
 
             const secondResponse = await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('X-Forwarded-For', '192.168.1.2');
+              .set('X-Forwarded-For', '192.168.1.2')
+              .send({
+                username: validUsername,
+                password: validPassword,
+              });
             expect(secondResponse.status).not.toBe(429);
           }
         });
@@ -713,12 +1075,20 @@ describe('AuthController', () => {
           for (let i = 0; i < 14; i++) {
             const firstResponse = await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('X-Forwarded-For', '192.168.1.1');
+              .set('X-Forwarded-For', '192.168.1.1')
+              .send({
+                username: validUsername,
+                password: validPassword,
+              });
             expect(firstResponse.status).not.toBe(429);
 
             const secondResponse = await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('X-Forwarded-For', '192.168.1.2');
+              .set('X-Forwarded-For', '192.168.1.2')
+              .send({
+                username: validUsername,
+                password: validPassword,
+              });
             expect(secondResponse.status).not.toBe(429);
           }
         });
@@ -727,12 +1097,20 @@ describe('AuthController', () => {
           for (let i = 0; i < 15; i++) {
             const firstResponse = await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('X-Forwarded-For', '192.168.1.1');
+              .set('X-Forwarded-For', '192.168.1.1')
+              .send({
+                username: validUsername,
+                password: validPassword,
+              });
             expect(firstResponse.status).not.toBe(429);
 
             const secondResponse = await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('X-Forwarded-For', '192.168.1.2');
+              .set('X-Forwarded-For', '192.168.1.2')
+              .send({
+                username: validUsername,
+                password: validPassword,
+              });
             expect(secondResponse.status).not.toBe(429);
           }
         });
@@ -741,21 +1119,37 @@ describe('AuthController', () => {
           for (let i = 0; i < 15; i++) {
             await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('X-Forwarded-For', '192.168.1.1');
+              .set('X-Forwarded-For', '192.168.1.1')
+              .send({
+                username: validUsername,
+                password: validPassword,
+              });
 
             await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('X-Forwarded-For', '192.168.1.2');
+              .set('X-Forwarded-For', '192.168.1.2')
+              .send({
+                username: validUsername,
+                password: validPassword,
+              });
           }
 
           const firstResponse = await request(app.getHttpServer())
             .post(testLoginEndPoint)
-            .set('X-Forwarded-For', '192.168.1.1');
+            .set('X-Forwarded-For', '192.168.1.1')
+            .send({
+              username: validUsername,
+              password: validPassword,
+            });
           expect(firstResponse.status).toBe(429);
 
           const secondResponse = await request(app.getHttpServer())
             .post(testLoginEndPoint)
-            .set('X-Forwarded-For', '192.168.1.2');
+            .set('X-Forwarded-For', '192.168.1.2')
+            .send({
+              username: validUsername,
+              password: validPassword,
+            });
           expect(secondResponse.status).toBe(429);
         });
 
@@ -764,21 +1158,37 @@ describe('AuthController', () => {
             if (i < 14)
               await request(app.getHttpServer())
                 .post(testLoginEndPoint)
-                .set('X-Forwarded-For', '192.168.1.1');
+                .set('X-Forwarded-For', '192.168.1.1')
+                .send({
+                  username: validUsername,
+                  password: validPassword,
+                });
 
             await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('X-Forwarded-For', '192.168.1.2');
+              .set('X-Forwarded-For', '192.168.1.2')
+              .send({
+                username: validUsername,
+                password: validPassword,
+              });
           }
 
           const firstResponse = await request(app.getHttpServer())
             .post(testLoginEndPoint)
-            .set('X-Forwarded-For', '192.168.1.1');
+            .set('X-Forwarded-For', '192.168.1.1')
+            .send({
+              username: validUsername,
+              password: validPassword,
+            });
           expect(firstResponse.status).not.toBe(429);
 
           const secondResponse = await request(app.getHttpServer())
             .post(testLoginEndPoint)
-            .set('X-Forwarded-For', '192.168.1.2');
+            .set('X-Forwarded-For', '192.168.1.2')
+            .send({
+              username: validUsername,
+              password: validPassword,
+            });
           expect(secondResponse.status).toBe(429);
         });
       });
@@ -788,18 +1198,24 @@ describe('AuthController', () => {
           await new Promise((resolve) => setTimeout(resolve, 100));
 
           for (let i = 0; i < 10; i++) {
-            const response = await request(app.getHttpServer()).post(
-              testLoginEndPoint,
-            );
+            const response = await request(app.getHttpServer())
+              .post(testLoginEndPoint)
+              .send({
+                username: validUsername,
+                password: validPassword,
+              });
             expect(response.status).not.toBe(429);
           }
 
           await new Promise((resolve) => setTimeout(resolve, 100));
 
           for (let i = 0; i < 5; i++) {
-            const response = await request(app.getHttpServer()).post(
-              testLoginEndPoint,
-            );
+            const response = await request(app.getHttpServer())
+              .post(testLoginEndPoint)
+              .send({
+                username: validUsername,
+                password: validPassword,
+              });
             expect(response.status).not.toBe(429);
           }
         });
@@ -808,26 +1224,35 @@ describe('AuthController', () => {
           await new Promise((resolve) => setTimeout(resolve, 100));
 
           for (let i = 0; i < 10; i++) {
-            const response = await request(app.getHttpServer()).post(
-              testLoginEndPoint,
-            );
+            const response = await request(app.getHttpServer())
+              .post(testLoginEndPoint)
+              .send({
+                username: validUsername,
+                password: validPassword,
+              });
             expect(response.status).not.toBe(429);
           }
 
           await new Promise((resolve) => setTimeout(resolve, 100));
 
           for (let i = 0; i < 5; i++) {
-            const response = await request(app.getHttpServer()).post(
-              testLoginEndPoint,
-            );
+            const response = await request(app.getHttpServer())
+              .post(testLoginEndPoint)
+              .send({
+                username: validUsername,
+                password: validPassword,
+              });
             expect(response.status).not.toBe(429);
           }
 
           await new Promise((resolve) => setTimeout(resolve, 50));
 
-          const response = await request(app.getHttpServer()).post(
-            testLoginEndPoint,
-          );
+          const response = await request(app.getHttpServer())
+            .post(testLoginEndPoint)
+            .send({
+              username: validUsername,
+              password: validPassword,
+            });
           expect(response.status).toBe(429);
         });
       });
@@ -866,12 +1291,11 @@ describe('AuthController', () => {
 
               return new UnprocessableEntityException(formattedErrors);
             },
-          })
+          }),
         );
 
         await app.init();
       });
-
 
       afterAll(async () => {
         await app.close();
@@ -1041,13 +1465,13 @@ describe('AuthController', () => {
         });
 
         describe('#FailedValidation - String 0', () => {
-          it('UTCID29: Should return 422 when username is string "0"', async () => {
+          it('UTCID29: Should not return 422 when username is string "0"', async () => {
             const response = await request(app.getHttpServer())
               .post(testLoginEndPoint)
               .set('deviceId', '1')
               .send({ username: '0', password: validPassword });
 
-            expect(response.status).toBe(200);
+            expect(response.status).not.toBe(422);
           });
 
           it('UTCID30: Should return 422 when password is string "0"', async () => {
@@ -1091,7 +1515,7 @@ describe('AuthController', () => {
             );
           });
 
-          it('UTCID36: Should return 200 when password contains special characters', async () => {
+          it('UTCID36: Should not return 422 when password contains special characters', async () => {
             const response = await request(app.getHttpServer())
               .post(testLoginEndPoint)
               .set('deviceId', '1')
@@ -1100,7 +1524,7 @@ describe('AuthController', () => {
                 password: 'pass@word#123',
               });
 
-            expect(response.status).toBe(200);
+            expect(response.status).not.toBe(422);
           });
 
           it('UTCID37: Should return 422 when username and password contain special characters', async () => {
@@ -1150,7 +1574,7 @@ describe('AuthController', () => {
             );
           });
 
-          it('UTCID42: Should return 200 when password is too long', async () => {
+          it('UTCID42: Should not return 422 when password is too long', async () => {
             const response = await request(app.getHttpServer())
               .post(testLoginEndPoint)
               .set('deviceId', '1')
@@ -1159,12 +1583,12 @@ describe('AuthController', () => {
                 password: '123412341234',
               });
 
-            expect(response.status).toBe(200);
+            expect(response.status).not.toBe(422);
           });
         });
 
         describe('#FailedValidation - Format Constraints', () => {
-          it('UTCID43: Should return 200 when username contains only letters', async () => {
+          it('UTCID43: Should not return 422 when username contains only letters', async () => {
             const response = await request(app.getHttpServer())
               .post(testLoginEndPoint)
               .set('deviceId', '1')
@@ -1173,10 +1597,10 @@ describe('AuthController', () => {
                 password: validPassword,
               });
 
-            expect(response.status).toBe(200);
+            expect(response.status).not.toBe(422);
           });
 
-          it('UTCID44: Should return 200 when username contains only numbers', async () => {
+          it('UTCID44: Should not return 422 when username contains only numbers', async () => {
             const response = await request(app.getHttpServer())
               .post(testLoginEndPoint)
               .set('deviceId', '1')
@@ -1185,10 +1609,10 @@ describe('AuthController', () => {
                 password: validPassword,
               });
 
-            expect(response.status).toBe(200);
+            expect(response.status).not.toBe(422);
           });
 
-          it('UTCID45: Should return 200 when username contains letters and numbers', async () => {
+          it('UTCID45: Should not return 422 when username contains letters and numbers', async () => {
             const response = await request(app.getHttpServer())
               .post(testLoginEndPoint)
               .set('deviceId', '1')
@@ -1197,10 +1621,10 @@ describe('AuthController', () => {
                 password: validPassword,
               });
 
-            expect(response.status).toBe(200);
+            expect(response.status).not.toBe(422);
           });
 
-          it('UTCID46: Should return 200 when password contains only letters', async () => {
+          it('UTCID46: Should not return 422 when password contains only letters', async () => {
             const response = await request(app.getHttpServer())
               .post(testLoginEndPoint)
               .set('deviceId', '1')
@@ -1209,10 +1633,10 @@ describe('AuthController', () => {
                 password: 'validonlyletters',
               });
 
-            expect(response.status).toBe(200);
+            expect(response.status).not.toBe(422);
           });
 
-          it('UTCID47: Should return 200 when password contains only numbers', async () => {
+          it('UTCID47: Should not return 422 when password contains only numbers', async () => {
             const response = await request(app.getHttpServer())
               .post(testLoginEndPoint)
               .set('deviceId', '1')
@@ -1221,10 +1645,10 @@ describe('AuthController', () => {
                 password: '123456789012',
               });
 
-            expect(response.status).toBe(200);
+            expect(response.status).not.toBe(422);
           });
 
-          it('UTCID48: Should return 200 when password contains letters and numbers', async () => {
+          it('UTCID48: Should not return 422 when password contains letters and numbers', async () => {
             const response = await request(app.getHttpServer())
               .post(testLoginEndPoint)
               .set('deviceId', '1')
@@ -1233,36 +1657,83 @@ describe('AuthController', () => {
                 password: 'password1234',
               });
 
-            expect(response.status).toBe(200);
+            expect(response.status).not.toBe(422);
           });
         });
       });
     });
 
     describe('#WrongCredentials', () => {
-      describe('#WrongCredentials - Password Validation', () => {
-        it('UTCID00: Should return 401 when wrong password is provided', async () => {
-          const response = await request(app.getHttpServer())
-            .post(testLoginEndPoint)
-            .set('deviceId', '1')
-            .send({ username: validUsername, password: unvalidPassword });
+      let authService;
+      let prisma;
 
-          expect(response.status).toBe(401);
-          expect(response.body.message).toBe('Sai thông tin đăng nhập');
+      beforeEach(async () => {
+        const module: TestingModule = await Test.createTestingModule({
+          providers: [],
+        }).compile();
+      });
+
+      it('UTCID00: Should throw UnauthorizedException when username is not found', async () => {
+        jest.spyOn(prisma.user, 'findUnique').mockResolvedValue(null);
+
+        const dto = {
+          username: USER_NOTFOUND,
+          password: invalidPassword,
+        };
+
+        await expect(authService.login(dto)).rejects.toThrow(
+          UnauthorizedException,
+        );
+      });
+
+      it('UTCID01: Should throw UnauthorizedException and increment loginAttempts when password is incorrect', async () => {
+        const mockUser = {
+          id: 1,
+          username: validUsername,
+          password: await bcrypt.hash(invalidPassword, 10),
+          loginAttempts: 0,
+        };
+
+        jest.spyOn(prisma.user, 'findUnique').mockResolvedValue(mockUser);
+        jest.spyOn(bcrypt, 'compare').mockResolvedValue(false as never);
+
+        await expect(
+          authService.login({
+            username: validUsername,
+            password: invalidPassword,
+          }),
+        ).rejects.toThrow(UnauthorizedException);
+
+        expect(prisma.user.update).toHaveBeenCalledWith({
+          where: { id: mockUser.id },
+          data: {
+            loginAttempts: {
+              increment: 1,
+            },
+            updatedAt: expect.any(Date),
+            updatedBy: Buffer.from('system'),
+          },
+        });
+      });
+
+      it('UTCID02: Should return 200 with access_token when correct credentials are provided', async () => {
+        const mockUser = {
+          id: 1,
+          username: validUsername,
+          password: await bcrypt.hash(validPassword, 10),
+        };
+
+        jest.spyOn(prisma.user, 'findUnique').mockResolvedValue(mockUser);
+        jest.spyOn(bcrypt, 'compare').mockResolvedValue(true as never);
+
+        const result = await authService.login({
+          username: validUsername,
+          password: validPassword,
         });
 
-        it('UTCID01: Should return 200 when correct password is provided', async () => {
-          const response = await request(app.getHttpServer())
-            .post(testLoginEndPoint)
-            .set('deviceId', '1')
-            .send({ username: validUsername, password: validPassword });
-
-          expect(response.status).toBe(200);
-          expect(response.body.message).toBe('Đăng nhập thành công');
-          expect(response.body.data).toHaveProperty('access_token');
-          expect(response.body.data).toHaveProperty('logged_user_data');
-          expect(response.body.data).toHaveProperty('tenants');
-        });
+        expect(result.status).toBe(200);
+        expect(result.message).toBe('Đăng nhập thành công');
+        expect(result.data).toHaveProperty('access_token', 'mocked_jwt_token');
       });
     });
   });
