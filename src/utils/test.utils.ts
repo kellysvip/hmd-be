@@ -4,8 +4,8 @@ export const VALID_USER = {
 };
 
 export const INVALID_USER = {
-  username: 'invaliduser**',
-  password: 'invalidpassword',
+  username: 'invalid user',
+  password: 'invalidpass',
 };
 
 export const USER_NOTFOUND = 'usernotfound';

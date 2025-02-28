@@ -7,7 +7,7 @@ export const config = {
     EXPIRATION: process.env.JWT_EXPIRATION || '3h',
   },
   REDIS: {
-    REFILL_RATE: parseInt(process.env.REFILL_RATE || '10'),
-    BUCKET_CAPACITY: parseInt(process.env.BUCKET_CAPACITY || '20'),
+    REFILL_RATE: parseInt(process.env.REFILL_RATE || '5'),
+    BUCKET_CAPACITY: parseInt(process.env.BUCKET_CAPACITY || '15'),
   },
 };

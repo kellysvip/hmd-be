@@ -7,11 +7,13 @@ import {
 import { Request, Response, NextFunction } from 'express';
 import Redis from 'ioredis';
 
+import { config } from '../config';
+
 @Injectable()
 export class TokenBucketMiddleware implements NestMiddleware {
   private redis: Redis;
-  private readonly BUCKET_CAPACITY = 15;
-  private readonly REFILL_RATE = 5;
+  private readonly BUCKET_CAPACITY = config.REDIS.BUCKET_CAPACITY;
+  private readonly REFILL_RATE = config.REDIS.REFILL_RATE;
 
   constructor() {
     this.redis = new Redis({
@@ -25,7 +27,7 @@ export class TokenBucketMiddleware implements NestMiddleware {
     this.redis.on('error', (err) => console.error('Redis Error:', err));
   }
 
-  async use(req: Request, res: Response, next: NextFunction) {
+  async use(req: Request, _: Response, next: NextFunction) {
     const userIP =
       req.headers['x-forwarded-for']?.toString().split(',')[0].trim() ||
       req.ip ||
