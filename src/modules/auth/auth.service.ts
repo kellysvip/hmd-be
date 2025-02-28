@@ -5,22 +5,20 @@ import * as bcrypt from 'bcrypt';
 import { AuthDto } from './dto/auth.dto';
 import { PrismaService } from '../../shared/prisma/prisma.service';
 import { getCurrentDate } from '../../helpers';
+import { JwtPayload } from '../../common/constants/types/jwt-payload.type';
+import { User } from '@prisma/client';
 
-@Injectable({})
+@Injectable()
 export class AuthService {
   constructor(
-    private prisma: PrismaService,
-    private jwtService: JwtService,
+    private readonly prisma: PrismaService,
+    private readonly jwtService: JwtService,
   ) {}
 
   /**
-   * Verify if user is logged in
-   * Return the jwt token if yes
-   *
-   * @param {string} username - username of user
-   * @param {string} password - password
-   *
-   * @return {Promise<object>} the object contains jwt token
+   * Handles user login and returns JWT token.
+   * @param {AuthDto} dto - The authentication data transfer object.
+   * @returns {Promise<object>} JWT access token.
    */
   async login(_, dto: AuthDto) {
     const user = await this.prisma.user.findUnique({
@@ -52,35 +50,61 @@ export class AuthService {
     return {
       status: 200,
       message: 'Đăng nhập thành công',
-      data: {
-        access_token: await this.signToken(user.id, user.username),
-      },
+      data: { access_token },
     };
   }
 
   /**
-   * Generates a signed JWT token for the specified user.
-   * @param userId - The unique identifier of the user.
-   * @param username - The username of the user.
-   * @returns A promise that resolves to an object containing the access token.
-   * @throws Will throw an error if token signing fails.
+   * Validates user credentials.
+   * @param {string} username - The username of the user.
+   * @param {string} password - The password provided by the user.
+   * @returns {Promise<User>} The authenticated user object.
+   * @throws {UnauthorizedException} If credentials are incorrect.
    */
-  async signToken(userId: number, username: string): Promise<string> {
-    return this.jwtService.signAsync({ id: userId, username });
+  private async validateUser(username: string, password: string) {
+    const user = await this.prisma.user.findUnique({ where: { username } });
+
+    if (!user || !(this.verifyPassword(password, user.password))) {
+      await this.handleFailedLogin(user as User);
+      throw new UnauthorizedException('Sai thông tin đăng nhập');
+    }
+
+    return user;
   }
 
   /**
-   * Return the comparation between password and hash
-   *
-   * @param {string} password         - password of user
-   * @param {string} hashedPassword   - hashed password in database
-   *
-   * @return {Promise<boolean>} is password correct
+   * Handles failed login attempts.
+   * @param {User} user - The user attempting to log in.
    */
-  private async verifyPassword(
-    password: string,
-    hashedPassword: string,
-  ): Promise<boolean> {
+  private async handleFailedLogin(user?: User): Promise<void> {
+    if (user) {
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: {
+          loginAttempts: { increment: 1 },
+          updatedAt: getCurrentDate(),
+          updatedBy: Buffer.from('system'),
+        },
+      });
+    }
+  }
+
+  /**
+   * Generates a signed JWT token for the user.
+   * @param {JwtPayload} payload - The payload containing user details.
+   * @returns {Promise<string>} The signed JWT access token.
+   */
+  private signToken(payload: JwtPayload): Promise<string> {
+    return this.jwtService.signAsync(payload);
+  }
+
+  /**
+   * Compares a password with its hashed version.
+   * @param {string} password - The raw password.
+   * @param {string} hashedPassword - The hashed password stored in the database.
+   * @returns {Promise<boolean>} Whether the password matches.
+   */
+  private verifyPassword(password: string, hashedPassword: string): Promise<boolean> {
     return bcrypt.compare(password, hashedPassword);
   }
 }

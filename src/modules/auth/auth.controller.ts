@@ -13,6 +13,7 @@ import { SwaggerTags } from '../../common/constants/enums/swagger-tags.enum';
 import { AuthService } from './auth.service';
 import { AuthDto } from './dto/auth.dto';
 import { loginBodySchema } from './auth.request-schema';
+import { validationPipe } from '../../validation-pipe';
 
 @Controller('auth')
 @ApiTags(SwaggerTags.AUTH)
@@ -21,6 +22,7 @@ export class AuthController {
 
   @Post('login')
   @ApiBody(loginBodySchema)
+  @UsePipes(validationPipe)
   @HttpCode(HttpStatus.OK)
   async login(@Headers('deviceId') deviceId: string, @Body() dto: AuthDto) {
     const numericDeviceId = Number(deviceId);
