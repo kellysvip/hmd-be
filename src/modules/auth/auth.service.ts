@@ -22,7 +22,7 @@ export class AuthService {
    *
    * @return {Promise<object>} the object contains jwt token
    */
-  async login(dto: AuthDto) {
+  async login(_, dto: AuthDto) {
     const user = await this.prisma.user.findUnique({
       where: {
         username: dto.username,

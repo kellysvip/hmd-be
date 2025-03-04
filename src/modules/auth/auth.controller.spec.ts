@@ -1719,7 +1719,7 @@ describe('AuthController', () => {
           password: invalidPassword,
         };
 
-        await expect(authService.login(dto)).rejects.toThrow(
+        await expect(authService.login(0, dto)).rejects.toThrow(
           UnauthorizedException,
         );
       });
@@ -1736,7 +1736,7 @@ describe('AuthController', () => {
         jest.spyOn(bcrypt, 'compare').mockResolvedValue(false as never);
 
         await expect(
-          authService.login({
+          authService.login(0, {
             username: validUsername,
             password: invalidPassword,
           }),
@@ -1766,7 +1766,7 @@ describe('AuthController', () => {
           .mockResolvedValue(mockUser as User);
         jest.spyOn(bcrypt, 'compare').mockResolvedValue(true as never);
 
-        const result = await authService.login({
+        const result = await authService.login(0, {
           username: validUsername,
           password: validPassword,
         });

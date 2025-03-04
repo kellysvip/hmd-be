@@ -1,4 +1,12 @@
-import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Headers,
+  HttpCode,
+  HttpStatus,
+  Post,
+  UnprocessableEntityException,
+} from '@nestjs/common';
 import { ApiBody, ApiTags } from '@nestjs/swagger';
 
 import { SwaggerTags } from '../../common/constants/enums/swagger-tags.enum';
@@ -9,12 +17,18 @@ import { loginBodySchema } from './auth.request-schema';
 @Controller('auth')
 @ApiTags(SwaggerTags.AUTH)
 export class AuthController {
-  constructor(private readonly authService: AuthService) { }
+  constructor(private readonly authService: AuthService) {}
 
   @Post('login')
   @ApiBody(loginBodySchema)
   @HttpCode(HttpStatus.OK)
-  async login(@Body() dto: AuthDto) {
-    return this.authService.login(dto);
+  async login(@Headers('deviceId') deviceId: string, @Body() dto: AuthDto) {
+    const numericDeviceId = Number(deviceId);
+
+    if (isNaN(numericDeviceId)) {
+      throw new UnprocessableEntityException('deviceId must be a number');
+    }
+
+    return this.authService.login(numericDeviceId, dto);
   }
 }
