@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Headers,
@@ -15,11 +16,17 @@ import { AuthDto } from './dto/auth.dto';
 @Controller('auth')
 @ApiTags(SwaggerTags.AUTH)
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(private readonly authService: AuthService) { }
 
   @Post('login')
   @HttpCode(HttpStatus.OK)
-  async login(@Headers('deviceId') deviceId: Request, @Body() dto: AuthDto) {
-    return this.authService.login(Number(deviceId), dto);
+  async login(@Headers('deviceid') deviceId: string, @Body() dto: AuthDto) {
+    const numericDeviceId = Number(deviceId);
+
+    if (isNaN(numericDeviceId)) {
+      throw new BadRequestException('deviceId must be a number');
+    }
+
+    return this.authService.login(numericDeviceId, dto);
   }
 }
