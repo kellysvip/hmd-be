@@ -21,31 +21,11 @@ export class AuthService {
    * @returns {Promise<object>} JWT access token.
    */
   async login(_, dto: AuthDto) {
-    const user = await this.prisma.user.findUnique({
-      where: {
-        username: dto.username,
-      },
+    const user = await this.validateUser(dto.username, dto.password);
+    const access_token = await this.signToken({
+      id: user.id,
+      username: user.username,
     });
-
-    if (!user) {
-      throw new UnauthorizedException('Sai thông tin đăng nhập');
-    }
-
-    const pwMatches = await this.verifyPassword(dto.password, user.password);
-    if (!pwMatches) {
-      await this.prisma.user.update({
-        where: { id: user.id },
-        data: {
-          loginAttempts: {
-            increment: 1,
-          },
-          updatedAt: getCurrentDate(),
-          updatedBy: Buffer.from('system'),
-        },
-      });
-
-      throw new UnauthorizedException('Sai thông tin đăng nhập');
-    }
 
     return {
       status: 200,
@@ -63,8 +43,10 @@ export class AuthService {
    */
   private async validateUser(username: string, password: string) {
     const user = await this.prisma.user.findUnique({ where: { username } });
+    const isValidPassword =
+      user && (await bcrypt.compare(password, user.password));
 
-    if (!user || !(this.verifyPassword(password, user.password))) {
+    if (!isValidPassword) {
       await this.handleFailedLogin(user as User);
       throw new UnauthorizedException('Sai thông tin đăng nhập');
     }
@@ -96,15 +78,5 @@ export class AuthService {
    */
   private signToken(payload: JwtPayload): Promise<string> {
     return this.jwtService.signAsync(payload);
-  }
-
-  /**
-   * Compares a password with its hashed version.
-   * @param {string} password - The raw password.
-   * @param {string} hashedPassword - The hashed password stored in the database.
-   * @returns {Promise<boolean>} Whether the password matches.
-   */
-  private verifyPassword(password: string, hashedPassword: string): Promise<boolean> {
-    return bcrypt.compare(password, hashedPassword);
   }
 }

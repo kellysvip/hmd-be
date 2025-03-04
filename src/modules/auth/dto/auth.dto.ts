@@ -1,4 +1,4 @@
-import { IsNotEmpty, Matches, MinLength } from 'class-validator';
+import { IsNotEmpty, IsString, Matches, MinLength } from 'class-validator';
 
 export class AuthDto {
   @IsNotEmpty({
@@ -7,6 +7,9 @@ export class AuthDto {
   @Matches(/^[a-z0-9]+$/, {
     message: 'username: chỉ được chứa a-z và 0-9',
   })
+  @IsString({
+    message: 'username: phải là một chuỗi',
+  })
   username: string;
 
   @IsNotEmpty({
@@ -14,6 +17,9 @@ export class AuthDto {
   })
   @MinLength(12, {
     message: 'password: phải tối thiểu 12 kí tự',
+  })
+  @IsString({
+    message: 'password: phải là một chuỗi',
   })
   password: string;
 }

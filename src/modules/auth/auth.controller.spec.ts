@@ -1443,7 +1443,20 @@ describe('AuthController', () => {
       });
 
       describe('#FailedValidation - Number 0', () => {
-        it('UTCID22: Should return 422 when username is number 0', async () => {
+        it('UTCID23: Should return 422 when username and password are number 0', async () => {
+          const response = await request(app.getHttpServer())
+            .post(testLoginEndPoint)
+            .set('deviceId', '1')
+            .send({ username: 0, password: 0 });
+
+          expect(response.status).toBe(422);
+          expect(response.body.message).toEqual([
+            'username: phải là một chuỗi',
+            'password: phải là một chuỗi',
+          ]);
+        });
+
+        it('UTCID23: Should return 422 when username is number 0', async () => {
           const response = await request(app.getHttpServer())
             .post(testLoginEndPoint)
             .set('deviceId', '1')
@@ -1451,11 +1464,11 @@ describe('AuthController', () => {
 
           expect(response.status).toBe(422);
           expect(response.body.message).toContain(
-            'username: chỉ được chứa a-z và 0-9',
+            'username: phải là một chuỗi',
           );
         });
 
-        it('UTCID23: Should return 422 when password is number 0', async () => {
+        it('UTCID24: Should return 422 when password is number 0', async () => {
           const response = await request(app.getHttpServer())
             .post(testLoginEndPoint)
             .set('deviceId', '1')
@@ -1463,22 +1476,7 @@ describe('AuthController', () => {
 
           expect(response.status).toBe(422);
           expect(response.body.message).toContain(
-            'password: phải tối thiểu 12 kí tự',
-          );
-        });
-
-        it('UTCID25: Should return 422 when username and password are number 0', async () => {
-          const response = await request(app.getHttpServer())
-            .post(testLoginEndPoint)
-            .set('deviceId', '1')
-            .send({ username: 0, password: 0 });
-
-          expect(response.status).toBe(422);
-          expect(response.body.message).toContain(
-            'username: chỉ được chứa a-z và 0-9',
-          );
-          expect(response.body.message).toContain(
-            'password: phải tối thiểu 12 kí tự',
+            'password: phải là một chuỗi',
           );
         });
 

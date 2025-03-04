@@ -6,6 +6,7 @@ import {
   HttpStatus,
   Post,
   UnprocessableEntityException,
+  UsePipes,
 } from '@nestjs/common';
 import { ApiBody, ApiTags } from '@nestjs/swagger';
 
