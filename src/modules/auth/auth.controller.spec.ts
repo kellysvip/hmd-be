@@ -7,6 +7,8 @@ import {
 } from '@nestjs/common';
 import * as request from 'supertest';
 import * as bcrypt from 'bcrypt';
+import { Redis } from 'ioredis';
+import { JwtService } from '@nestjs/jwt';
 
 import { AppModule } from '../../app.module';
 import {
@@ -15,6 +17,9 @@ import {
   USER_NOTFOUND,
 } from '../../utils/test.utils';
 import { AuthModule } from './auth.module';
+import { AuthService } from './auth.service';
+import { User } from '@prisma/client';
+import { PrismaService } from '../../shared/prisma/prisma.service';
 
 jest.retryTimes(3);
 jest.setTimeout(30000);
@@ -29,6 +34,8 @@ describe('AuthController', () => {
     const invalidPassword = INVALID_USER.password;
 
     describe('#ExceedThrottling', () => {
+      let redis: Redis;
+
       beforeAll(async () => {
         const moduleFixture: TestingModule = await Test.createTestingModule({
           imports: [AppModule],
@@ -36,11 +43,22 @@ describe('AuthController', () => {
 
         app = moduleFixture.createNestApplication();
 
+        redis = new Redis({
+          host: '127.0.0.1',
+          port: 6379,
+          commandTimeout: 5000,
+        });
+
         await app.init();
       });
 
       afterAll(async () => {
+        await redis.quit();
         await app.close();
+      });
+
+      afterEach(async () => {
+        await redis.flushall();
       });
 
       describe('#ExceedThrottling - Burst Remains', () => {
@@ -1425,7 +1443,20 @@ describe('AuthController', () => {
       });
 
       describe('#FailedValidation - Number 0', () => {
-        it('UTCID22: Should return 422 when username is number 0', async () => {
+        it('UTCID23: Should return 422 when username and password are number 0', async () => {
+          const response = await request(app.getHttpServer())
+            .post(testLoginEndPoint)
+            .set('deviceId', '1')
+            .send({ username: 0, password: 0 });
+
+          expect(response.status).toBe(422);
+          expect(response.body.message).toEqual([
+            'username: phải là một chuỗi',
+            'password: phải là một chuỗi',
+          ]);
+        });
+
+        it('UTCID23: Should return 422 when username is number 0', async () => {
           const response = await request(app.getHttpServer())
             .post(testLoginEndPoint)
             .set('deviceId', '1')
@@ -1433,11 +1464,11 @@ describe('AuthController', () => {
 
           expect(response.status).toBe(422);
           expect(response.body.message).toContain(
-            'username: chỉ được chứa a-z và 0-9',
+            'username: phải là một chuỗi',
           );
         });
 
-        it('UTCID23: Should return 422 when password is number 0', async () => {
+        it('UTCID24: Should return 422 when password is number 0', async () => {
           const response = await request(app.getHttpServer())
             .post(testLoginEndPoint)
             .set('deviceId', '1')
@@ -1445,22 +1476,7 @@ describe('AuthController', () => {
 
           expect(response.status).toBe(422);
           expect(response.body.message).toContain(
-            'password: phải tối thiểu 12 kí tự',
-          );
-        });
-
-        it('UTCID25: Should return 422 when username and password are number 0', async () => {
-          const response = await request(app.getHttpServer())
-            .post(testLoginEndPoint)
-            .set('deviceId', '1')
-            .send({ username: 0, password: 0 });
-
-          expect(response.status).toBe(422);
-          expect(response.body.message).toContain(
-            'username: chỉ được chứa a-z và 0-9',
-          );
-          expect(response.body.message).toContain(
-            'password: phải tối thiểu 12 kí tự',
+            'password: phải là một chuỗi',
           );
         });
 
@@ -1664,13 +1680,33 @@ describe('AuthController', () => {
     });
 
     describe('#WrongCredentials', () => {
-      let authService;
-      let prisma;
+      let authService: AuthService;
+      let prisma: PrismaService;
 
       beforeEach(async () => {
         const module: TestingModule = await Test.createTestingModule({
-          providers: [],
+          providers: [
+            AuthService,
+            {
+              provide: PrismaService,
+              useValue: {
+                user: {
+                  findUnique: jest.fn(),
+                  update: jest.fn(),
+                },
+              },
+            },
+            {
+              provide: JwtService,
+              useValue: {
+                signAsync: jest.fn().mockResolvedValue('mocked_jwt_token'),
+              },
+            },
+          ],
         }).compile();
+
+        authService = module.get<AuthService>(AuthService);
+        prisma = module.get<PrismaService>(PrismaService);
       });
 
       it('UTCID00: Should throw UnauthorizedException when username is not found', async () => {
@@ -1681,7 +1717,7 @@ describe('AuthController', () => {
           password: invalidPassword,
         };
 
-        await expect(authService.login(dto)).rejects.toThrow(
+        await expect(authService.login(0, dto)).rejects.toThrow(
           UnauthorizedException,
         );
       });
@@ -1692,13 +1728,13 @@ describe('AuthController', () => {
           username: validUsername,
           password: await bcrypt.hash(invalidPassword, 10),
           loginAttempts: 0,
-        };
+        } as User;
 
         jest.spyOn(prisma.user, 'findUnique').mockResolvedValue(mockUser);
         jest.spyOn(bcrypt, 'compare').mockResolvedValue(false as never);
 
         await expect(
-          authService.login({
+          authService.login(0, {
             username: validUsername,
             password: invalidPassword,
           }),
@@ -1723,10 +1759,12 @@ describe('AuthController', () => {
           password: await bcrypt.hash(validPassword, 10),
         };
 
-        jest.spyOn(prisma.user, 'findUnique').mockResolvedValue(mockUser);
+        jest
+          .spyOn(prisma.user, 'findUnique')
+          .mockResolvedValue(mockUser as User);
         jest.spyOn(bcrypt, 'compare').mockResolvedValue(true as never);
 
-        const result = await authService.login({
+        const result = await authService.login(0, {
           username: validUsername,
           password: validPassword,
         });

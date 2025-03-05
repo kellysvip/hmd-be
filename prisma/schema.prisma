@@ -1,0 +1,740 @@
+model WorldCountry {
+  id        Int     @id @default(autoincrement()) @map("id")
+  uid       Bytes   @unique @map("uid") @db.Binary(16)
+  code      String? @unique @db.Char(5)
+  moneyCode String  @map("money_code") @db.Char(6)
+  name      String  @db.VarChar(50)
+  continent String  @db.VarChar(30)
+  timezone  String  @db.VarChar(20)
+  language  String  @db.VarChar(20)
+  taxRate   Float   @default(0.1) @map("tax_rate")
+  iconSrc   String  @default("no-icon.png") @map("icon_src") @db.VarChar(255)
+
+  createdAt DateTime  @map("created_at")
+  updatedAt DateTime  @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+  createdBy Bytes     @map("created_by") @db.Binary(16)
+  updatedBy Bytes     @map("updated_by") @db.Binary(16)
+  deletedBy Bytes?    @map("deleted_by") @db.Binary(16)
+
+  areas WorldArea[]
+
+  @@map("world_countries")
+}
+
+model WorldArea {
+  id         Int     @id @default(autoincrement()) @map("id")
+  uid        Bytes   @unique @map("uid") @db.Binary(16)
+  countryId  Int     @map("country_id")
+  parentId   Int?    @map("parent_id")
+  viName     String  @map("vi_name") @db.VarChar(50)
+  enName     String  @map("en_name") @db.VarChar(50)
+  level      Int     @default(1) @map("level")
+  levelTitle String  @default("Tỉnh") @map("level_title") @db.Char(10)
+  zip        String? @db.Char(10)
+
+  createdAt DateTime  @map("created_at")
+  updatedAt DateTime  @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+  createdBy Bytes     @map("created_by") @db.Binary(16)
+  updatedBy Bytes     @map("updated_by") @db.Binary(16)
+  deletedBy Bytes?    @map("deleted_by") @db.Binary(16)
+
+  country      WorldCountry   @relation(fields: [countryId], references: [id])
+  parent       WorldArea?     @relation("ParentArea", fields: [parentId], references: [id])
+  children     WorldArea[]    @relation("ParentArea")
+  UserMetadata UserMetadata[]
+  Organization Organization[]
+
+  @@map("world_areas")
+}
+
+model SystemService {
+  id          Int     @id @default(autoincrement()) @map("id")
+  uid         Bytes   @unique @map("uid") @db.Binary(16)
+  code        String  @unique @db.VarChar(20)
+  name        String  @db.VarChar(100)
+  description String? @db.VarChar(255)
+
+  createdAt DateTime  @map("created_at")
+  updatedAt DateTime  @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+  createdBy Bytes     @map("created_by") @db.Binary(16)
+  updatedBy Bytes     @map("updated_by") @db.Binary(16)
+  deletedBy Bytes?    @map("deleted_by") @db.Binary(16)
+
+  features SystemFeature[]
+
+  @@map("system_services")
+}
+
+enum SystemParameterType {
+  int
+  json
+  str
+  float
+  file
+}
+
+model SystemFeature {
+  id            Int     @id @default(autoincrement()) @map("id")
+  uid           Bytes   @unique @map("uid") @db.Binary(16)
+  code          String  @unique @db.VarChar(20)
+  name          String  @db.VarChar(100)
+  latestVersion String  @default("0.0.1") @map("latest_version") @db.Char(5)
+  isBeta        Boolean @default(false) @map("is_beta")
+  description   String? @db.VarChar(255)
+  logoSrc       String  @default("no-logo.png") @map("logo_src") @db.VarChar(255)
+  serviceId     Int     @map("service_id")
+
+  createdAt DateTime  @map("created_at")
+  updatedAt DateTime  @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+  createdBy Bytes     @map("created_by") @db.Binary(16)
+  updatedBy Bytes     @map("updated_by") @db.Binary(16)
+  deletedBy Bytes?    @map("deleted_by") @db.Binary(16)
+
+  service    SystemService                @relation(fields: [serviceId], references: [id])
+  parameters SystemParameter[]            @relation("FeatureParameters") // Thêm mảng quan hệ ngược lại
+  modules    SaasModuleHasSystemFeature[]
+
+  @@map("system_features")
+}
+
+model SystemParameter {
+  id           Int                 @id @default(autoincrement()) @map("id")
+  key          String              @db.VarChar(100)
+  featureId    Int                 @map("feature_uid")
+  value        String              @db.VarChar(255)
+  defaultValue String              @map("default_value") @db.VarChar(255)
+  type         SystemParameterType @default(str) @map("type")
+
+  createdAt DateTime @map("created_at")
+  updatedAt DateTime @map("updated_at")
+
+  feature SystemFeature @relation("FeatureParameters", fields: [featureId], references: [id])
+
+  @@unique([key, featureId], map: "unique_key_feature")
+  @@map("system_parameters")
+}
+
+model SaasModule {
+  id                    Int     @id @default(autoincrement()) @map("id")
+  uid                   Bytes   @unique @map("uid") @db.Binary(16)
+  code                  String  @unique @db.VarChar(20)
+  title                 String  @db.VarChar(255)
+  description           String? @db.VarChar(255)
+  fixedPriceMonthlyUsd  Float   @default(0) @map("fixed_price_monthly_usd")
+  fixedPriceAnnuallyUsd Float   @default(0) @map("fixed_price_annually_usd")
+  trialDays             Int     @default(14) @map("trial_days")
+  allowedOverduePayDays Int     @default(7) @map("allowed_overdue_pay_days")
+  chargedByDemand       Boolean @default(false) @map("charged_by_demand")
+
+  createdAt                  DateTime                     @map("created_at")
+  updatedAt                  DateTime                     @map("updated_at")
+  deletedAt                  DateTime?                    @map("deleted_at")
+  createdBy                  Bytes                        @map("created_by") @db.Binary(16)
+  updatedBy                  Bytes                        @map("updated_by") @db.Binary(16)
+  deletedBy                  Bytes?                       @map("deleted_by") @db.Binary(16)
+  SaasModuleHasSystemFeature SaasModuleHasSystemFeature[]
+  SaasModuleHasDemandMetric  SaasModuleHasDemandMetric[]
+
+  @@map("saas_modules")
+}
+
+enum SaasDemandMetricValueType {
+  numeric
+  percent
+}
+
+model SaasDemandMetric {
+  id                 Int                       @id @default(autoincrement()) @map("id")
+  uid                Bytes                     @unique @map("uid") @db.Binary(16)
+  code               String                    @unique @db.VarChar(20)
+  title              String                    @db.VarChar(255)
+  description        String?                   @db.VarChar(255)
+  valueType          SaasDemandMetricValueType @default(numeric) @map("value_type")
+  isBetterIfDecrease Boolean                   @default(false) @map("is_better_if_descrease")
+  stepValue          Float                     @default(1) @map("step_value")
+  startAt            Float                     @default(0) @map("start_at")
+
+  metricLines  SaasDemandMetricLine[]
+  metricValues SaasDemandMetricValueByDate[]
+  modules      SaasModuleHasDemandMetric[]
+
+  @@map("saas_demand_metrics")
+}
+
+model SaasDemandMetricLine {
+  id       Int   @id @default(autoincrement()) @map("id")
+  uid      Bytes @unique @map("uid") @db.Binary(16)
+  metricId Int   @map("metric_id")
+  min      Float @map("min")
+  max      Float @map("max")
+  rate     Float @map("rate")
+
+  metric SaasDemandMetric @relation(fields: [metricId], references: [id])
+
+  @@map("saas_demand_metric_lines")
+}
+
+model SaasDemandMetricValueByDate {
+  id               Int       @id @default(autoincrement()) @map("id")
+  uid              Bytes     @unique @map("uid") @db.Binary(16)
+  metricId         Int       @map("metric_id")
+  beforeValue      Float     @map("before_value")
+  changedValue     Float     @map("changed_value")
+  changedDirection String    @default("add") @map("changed_direction") @db.Char(3)
+  afterValue       Float     @map("after_value")
+  createdAt        DateTime  @map("created_at")
+  updatedAt        DateTime  @map("updated_at")
+  deletedAt        DateTime? @map("deleted_at")
+  createdBy        Bytes     @map("created_by") @db.Binary(16)
+  updatedBy        Bytes     @map("updated_by") @db.Binary(16)
+  deletedBy        Bytes?    @map("deleted_by") @db.Binary(16)
+
+  metric SaasDemandMetric @relation(fields: [metricId], references: [id])
+
+  @@map("saas_demand_metric_values_bydate")
+}
+
+model SaasModuleHasSystemFeature {
+  moduleId  Int @map("module_id")
+  featureId Int @map("feature_id")
+
+  module  SaasModule    @relation(fields: [moduleId], references: [id])
+  feature SystemFeature @relation(fields: [featureId], references: [id])
+
+  @@id([moduleId, featureId])
+  @@map("saas_module_has_system_features")
+}
+
+model SaasModuleHasDemandMetric {
+  moduleId Int @map("module_id")
+  metricId Int @map("metric_id")
+
+  module SaasModule       @relation(fields: [moduleId], references: [id])
+  metric SaasDemandMetric @relation(fields: [metricId], references: [id])
+
+  @@id([moduleId, metricId])
+  @@map("saas_module_has_demand_metrics")
+}
+
+enum UserType {
+  saas
+  internal
+}
+
+model User {
+  id       Int      @id @default(autoincrement()) @map("id")
+  uid      Bytes    @unique @map("uid") @db.Binary(16)
+  username String   @unique @db.VarChar(20)
+  password String   @db.Char(76)
+  email    String   @db.VarChar(50)
+  phone    String   @db.VarChar(20)
+  type     UserType @default(saas)
+
+  loginAttempts          Int      @default(0) @map("login_attempts")
+  isBlockedByTenantOwner Boolean  @default(false) @map("is_blocked_by_tenant_owner")
+  isBannedBySystem       Boolean  @default(false) @map("is_banned_by_system")
+  emailVerified          Boolean  @default(false) @map("email_verified")
+  phoneVerified          Boolean  @default(false) @map("phone_verified")
+  passwordUpdatedAt      DateTime @map("password_updated_at")
+
+  createdAt DateTime  @map("created_at")
+  updatedAt DateTime  @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+  createdBy Bytes     @map("created_by") @db.Binary(16)
+  updatedBy Bytes     @map("updated_by") @db.Binary(16)
+  deletedBy Bytes?    @map("deleted_by") @db.Binary(16)
+
+  metadata            UserMetadata[]
+  UserDevice          UserDevice[]
+  UserLoggedDevice    UserLoggedDevice[]
+  OrganizationHasUser OrganizationHasUser[]
+  RbacUserHasRole     RbacUserHasRole[]
+  RbacUserHasPolicy   RbacUserHasPolicy[]
+
+  @@map("users")
+}
+
+model UserMetadata {
+  id          Int       @id @default(autoincrement()) @map("id")
+  uid         Bytes     @unique @map("uid") @db.Binary(16)
+  userId      Int       @map("user_id")
+  areaId      Int       @map("area_id")
+  firstName   String    @map("first_name") @db.VarChar(50)
+  lastName    String    @map("last_name") @db.VarChar(50)
+  careerTitle String?   @map("career_title") @db.VarChar(50)
+  birthday    DateTime?
+  gender      String    @default("U") @map("gender") @db.Char(1)
+  avatarSrc   String    @default("no-avatar.png") @map("avatar_src") @db.VarChar(255)
+
+  createdAt DateTime  @map("created_at")
+  updatedAt DateTime  @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+  createdBy Bytes     @map("created_by") @db.Binary(16)
+  updatedBy Bytes     @map("updated_by") @db.Binary(16)
+  deletedBy Bytes?    @map("deleted_by") @db.Binary(16)
+
+  user User      @relation(fields: [userId], references: [id])
+  area WorldArea @relation(fields: [areaId], references: [id])
+
+  @@map("user_metadatas")
+}
+
+enum UserDeviceType {
+  desktop
+  mobile
+  tablet
+}
+
+enum UserDeviceOS {
+  windows
+  macos
+  ios
+  android
+  linux
+}
+
+model UserDevice {
+  id          Int            @id @default(autoincrement()) @map("id")
+  uid         Bytes          @unique @map("uid") @db.Binary(16)
+  userId      Int            @map("user_id")
+  fingerprint String         @unique @db.VarChar(255)
+  agent       String         @db.VarChar(255)
+  deviceType  UserDeviceType @default(desktop) @map("device_type")
+  deviceOS    UserDeviceOS   @default(windows) @map("device_os")
+  ipAddress   String         @map("ip_address") @db.Char(32)
+  macAddress  String         @map("mac_address") @db.Char(10)
+
+  createdAt DateTime  @map("created_at")
+  updatedAt DateTime  @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+  createdBy Bytes     @map("created_by") @db.Binary(16)
+  updatedBy Bytes     @map("updated_by") @db.Binary(16)
+  deletedBy Bytes?    @map("deleted_by") @db.Binary(16)
+
+  user          User               @relation(fields: [userId], references: [id])
+  loggedDevices UserLoggedDevice[]
+
+  @@map("user_devices")
+}
+
+model UserLoggedDevice {
+  userId   Int @map("user_id")
+  deviceId Int @map("device_id")
+
+  createdAt DateTime  @map("created_at")
+  updatedAt DateTime  @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+  createdBy Bytes     @map("created_by") @db.Binary(16)
+  updatedBy Bytes     @map("updated_by") @db.Binary(16)
+  deletedBy Bytes?    @map("deleted_by") @db.Binary(16)
+
+  user   User       @relation(fields: [userId], references: [id])
+  device UserDevice @relation(fields: [deviceId], references: [id])
+
+  @@id([userId, deviceId])
+  @@map("user_logged_devices")
+}
+
+model Organization {
+  id        Int     @id @default(autoincrement()) @map("id")
+  uid       Bytes   @unique @map("uid") @db.Binary(16)
+  shortName String  @unique @map("short_name") @db.VarChar(20)
+  fullName  String  @unique @map("full_name") @db.VarChar(100)
+  email     String? @db.VarChar(50)
+  phone     String? @db.VarChar(20)
+  areaId    Int     @map("area_id")
+
+  createdAt DateTime  @map("created_at")
+  updatedAt DateTime  @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+  createdBy Bytes     @map("created_by") @db.Binary(16)
+  updatedBy Bytes     @map("updated_by") @db.Binary(16)
+  deletedBy Bytes?    @map("deleted_by") @db.Binary(16)
+
+  area                  WorldArea               @relation(fields: [areaId], references: [id])
+  users                 OrganizationHasUser[]
+  PaymentPayoutProfile  PaymentPayoutProfile[]
+  PaymentBillingProfile PaymentBillingProfile[]
+  Tenant                Tenant[]
+
+  @@map("organizations")
+}
+
+model OrganizationHasUser {
+  orgId   Int     @map("org_id")
+  userId  Int     @map("user_id")
+  isOwner Boolean @default(false) @map("is_owner")
+
+  createdAt DateTime  @map("created_at")
+  updatedAt DateTime  @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+  createdBy Bytes     @map("created_by") @db.Binary(16)
+  updatedBy Bytes     @map("updated_by") @db.Binary(16)
+  deletedBy Bytes?    @map("deleted_by") @db.Binary(16)
+
+  organization Organization @relation(fields: [orgId], references: [id])
+  user         User         @relation(fields: [userId], references: [id])
+
+  @@id([orgId, userId])
+  @@map("organization_has_users")
+}
+
+enum PaymentInvoiceStatus {
+  waiting
+  paid
+  partial_paid
+}
+
+enum PaymentSettlementStatus {
+  waiting
+  rejected
+  approved
+  paid
+  partial_paid
+}
+
+model PaymentPayoutProfile {
+  id                         Int    @id @default(autoincrement()) @map("id")
+  uid                        Bytes  @unique @map("uid") @db.Binary(16)
+  organizationId             Int    @map("organization_id")
+  name                       String @db.VarChar(100)
+  bankName                   String @map("bank_name") @db.VarChar(100)
+  bankAccountFullname        String @map("bank_account_fullname") @db.VarChar(100)
+  bankAccountNumber          String @map("bank_account_number") @db.VarChar(20)
+  settlementLegalName        String @map("settlement_legal_name") @db.VarChar(100)
+  settlementTaxCode          String @map("settlement_tax_code") @db.VarChar(20)
+  settlementEmail            String @map("settlement_email") @db.VarChar(50)
+  settlementPhone            String @map("settlement_phone") @db.VarChar(20)
+  settlementAddress          String @map("settlement_address") @db.VarChar(255)
+  settlementApprovalFullname String @map("settlement_approval_fullname") @db.VarChar(100)
+  settlementApprovalEmail    String @map("settlement_approval_email") @db.VarChar(50)
+  settlementApprovalPhone    String @map("settlement_approval_phone") @db.VarChar(20)
+  settlementRotationDays     Int    @default(120) @map("settlement_rotation_days")
+
+  createdAt DateTime  @map("created_at")
+  updatedAt DateTime  @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+  createdBy Bytes     @map("created_by") @db.Binary(16)
+  updatedBy Bytes     @map("updated_by") @db.Binary(16)
+  deletedBy Bytes?    @map("deleted_by") @db.Binary(16)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  Tenant       Tenant[]
+
+  @@map("payment_payout_profiles")
+}
+
+model PaymentBillingProfile {
+  id             Int    @id @default(autoincrement()) @map("id")
+  uid            Bytes  @unique @map("uid") @db.Binary(16)
+  organizationId Int    @map("organization_id")
+  name           String @db.VarChar(100)
+  type           String @default("debit") @db.Char(6)
+
+  invoiceLegalName String @map("invoice_legal_name") @db.VarChar(100)
+  invoiceTaxCode   String @map("invoice_tax_code") @db.VarChar(20)
+  invoiceEmail     String @map("invoice_email") @db.VarChar(50)
+  invoicePhone     String @map("invoice_phone") @db.VarChar(20)
+  invoiceAddress   String @map("invoice_address") @db.VarChar(255)
+  receiptEmail     String @map("receipt_email") @db.VarChar(50)
+
+  paymentMerchantCustomerId String?   @map("payment_merchant_customer_id") @db.VarChar(255)
+  paymentMerchantSourceId   String?   @map("payment_merchant_source_id") @db.VarChar(255)
+  lastSuccessChargeAt       DateTime? @map("last_success_charge_at")
+
+  createdAt DateTime  @map("created_at")
+  updatedAt DateTime  @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+  createdBy Bytes     @map("created_by") @db.Binary(16)
+  updatedBy Bytes     @map("updated_by") @db.Binary(16)
+  deletedBy Bytes?    @map("deleted_by") @db.Binary(16)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  Tenant       Tenant[]
+
+  @@unique([paymentMerchantCustomerId, paymentMerchantSourceId], map: "unique_merchant_ids")
+  @@map("payment_billing_profiles")
+}
+
+model PaymentInvoice {
+  id                     Int                  @id @default(autoincrement()) @map("id")
+  uid                    Bytes                @unique @map("uid") @db.Binary(16)
+  tenantId               Int                  @map("tenant_id")
+  subtotal               Float                @map("subtotal")
+  discountOnSubtotalRate Float?               @map("discount_on_subtotal_rate")
+  taxRate                Float                @map("tax_rate")
+  total                  Float                @map("total")
+  currency               String               @default("VND") @db.VarChar(10)
+  mustPayDate            DateTime             @map("must_pay_date")
+  status                 PaymentInvoiceStatus @default(waiting)
+  attachmentSrc          String?              @map("attachment_src") @db.VarChar(255)
+
+  createdAt DateTime  @map("created_at")
+  updatedAt DateTime  @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+  createdBy Bytes     @map("created_by") @db.Binary(16)
+  updatedBy Bytes     @map("updated_by") @db.Binary(16)
+  deletedBy Bytes?    @map("deleted_by") @db.Binary(16)
+
+  details PaymentInvoiceDetail[]
+
+  @@map("payment_invoices")
+}
+
+model PaymentInvoiceDetail {
+  id                  Int     @id @default(autoincrement()) @map("id")
+  uid                 Bytes   @unique @map("uid") @db.Binary(16)
+  invoiceId           Int     @map("invoice_id")
+  subject             String  @db.VarChar(255)
+  unit                String? @db.VarChar(10)
+  price               Float   @map("price")
+  discountOnPriceRate Float?  @map("discount_on_price_rate")
+  quantity            Float   @default(1) @map("quantity")
+  cost                Float   @map("cost")
+  discountOnCostRate  Float?  @map("discount_on_cost_rate")
+
+  createdAt DateTime  @map("created_at")
+  updatedAt DateTime  @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+  createdBy Bytes     @map("created_by") @db.Binary(16)
+  updatedBy Bytes     @map("updated_by") @db.Binary(16)
+  deletedBy Bytes?    @map("deleted_by") @db.Binary(16)
+
+  invoice PaymentInvoice @relation(fields: [invoiceId], references: [id])
+
+  @@map("payment_invoice_details")
+}
+
+model PaymentSettlement {
+  id            Int                     @id @default(autoincrement()) @map("id")
+  uid           Bytes                   @unique @map("uid") @db.Binary(16)
+  tenantId      Int                     @map("tenant_id")
+  before        Float                   @map("before")
+  change        Float                   @map("change")
+  after         Float                   @map("after")
+  payable       Float                   @map("payable")
+  freezed       Float                   @map("freezed")
+  freezedReason String?                 @map("freezed_reason") @db.VarChar(255)
+  currency      String                  @default("VND") @db.VarChar(10)
+  status        PaymentSettlementStatus @default(waiting)
+  mustPayDate   DateTime                @map("must_pay_date")
+  attachmentSrc String?                 @map("attachment_src") @db.VarChar(255)
+
+  createdAt DateTime  @map("created_at")
+  updatedAt DateTime  @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+  createdBy Bytes     @map("created_by") @db.Binary(16)
+  updatedBy Bytes     @map("updated_by") @db.Binary(16)
+  deletedBy Bytes?    @map("deleted_by") @db.Binary(16)
+
+  details PaymentSettlementDetail[]
+
+  @@map("payment_settlements")
+}
+
+model PaymentSettlementDetail {
+  id           Int    @id @default(autoincrement()) @map("id")
+  uid          Bytes  @unique @map("uid") @db.Binary(16)
+  settlementId Int    @map("settlement_id")
+  subject      String @db.VarChar(255)
+  value        Float  @map("value")
+
+  createdAt DateTime  @map("created_at")
+  updatedAt DateTime  @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+  createdBy Bytes     @map("created_by") @db.Binary(16)
+  updatedBy Bytes     @map("updated_by") @db.Binary(16)
+  deletedBy Bytes?    @map("deleted_by") @db.Binary(16)
+
+  settlement PaymentSettlement @relation(fields: [settlementId], references: [id])
+
+  @@map("payment_settlements_details")
+}
+
+enum InfraType {
+  shared
+  dedicated
+}
+
+model Tenant {
+  id               Int   @id @default(autoincrement()) @map("id")
+  uid              Bytes @unique @map("uid") @db.Binary(16)
+  organizationId   Int   @map("organization_id")
+  payoutProfileId  Int   @map("payout_profile_id")
+  billingProfileId Int   @map("billing_profile_id")
+
+  shortName String    @unique @map("short_name") @db.VarChar(20)
+  fullName  String    @unique @map("full_name") @db.VarChar(100)
+  logoSrc   String    @default("no-logo.png") @map("logo_src") @db.VarChar(255)
+  infraType InfraType @default(shared) @map("infra_type")
+
+  createdAt DateTime  @map("created_at")
+  updatedAt DateTime  @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+  createdBy Bytes     @map("created_by") @db.Binary(16)
+  updatedBy Bytes     @map("updated_by") @db.Binary(16)
+  deletedBy Bytes?    @map("deleted_by") @db.Binary(16)
+
+  organization   Organization          @relation(fields: [organizationId], references: [id])
+  payoutProfile  PaymentPayoutProfile  @relation(fields: [payoutProfileId], references: [id])
+  billingProfile PaymentBillingProfile @relation(fields: [billingProfileId], references: [id])
+  RbacRole       RbacRole[]
+  RbacResource   RbacResource[]
+  RbacPermission RbacPermission[]
+
+  @@map("tenants")
+}
+
+enum RbacResourceType {
+  feat
+  func
+  tbl
+  col
+  rec
+  spec
+}
+
+model RbacRole {
+  id              Int     @id @default(autoincrement()) @map("id")
+  uid             Bytes   @unique @map("uid") @db.Binary(16)
+  tenantId        Int     @map("tenant_id")
+  name            String  @unique @db.VarChar(50)
+  description     String? @db.VarChar(255)
+  isSystemDefault Boolean @default(true) @map("is_system_default")
+
+  createdAt DateTime  @map("created_at")
+  updatedAt DateTime  @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+  createdBy Bytes     @map("created_by") @db.Binary(16)
+  updatedBy Bytes     @map("updated_by") @db.Binary(16)
+  deletedBy Bytes?    @map("deleted_by") @db.Binary(16)
+
+  tenant       Tenant              @relation(fields: [tenantId], references: [id])
+  userRoles    RbacUserHasRole[]
+  rolePolicies RbacRoleHasPolicy[]
+
+  @@map("rbac_roles")
+}
+
+model RbacResource {
+  id              Int              @id @default(autoincrement()) @map("id")
+  uid             Bytes            @unique @map("uid") @db.Binary(16)
+  tenantId        Int              @map("tenant_id")
+  name            String           @unique @db.VarChar(100)
+  dbIdentity      String?          @map("db_identity") @db.VarChar(50)
+  type            RbacResourceType @default(feat)
+  description     String?          @db.VarChar(255)
+  isSystemDefault Boolean          @default(true) @map("is_system_default")
+
+  createdAt DateTime  @map("created_at")
+  updatedAt DateTime  @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+  createdBy Bytes     @map("created_by") @db.Binary(16)
+  updatedBy Bytes     @map("updated_by") @db.Binary(16)
+  deletedBy Bytes?    @map("deleted_by") @db.Binary(16)
+
+  tenant            Tenant              @relation(fields: [tenantId], references: [id])
+  resourcePolicies  RbacRoleHasPolicy[]
+  RbacUserHasPolicy RbacUserHasPolicy[]
+
+  @@map("rbac_resources")
+}
+
+model RbacPermission {
+  id              Int     @id @default(autoincrement()) @map("id")
+  uid             Bytes   @unique @map("uid") @db.Binary(16)
+  tenantId        Int     @map("tenant_id")
+  name            String  @unique @db.VarChar(50)
+  description     String? @db.VarChar(255)
+  isSystemDefault Boolean @default(true) @map("is_system_default")
+
+  createdAt DateTime  @map("created_at")
+  updatedAt DateTime  @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+  createdBy Bytes     @map("created_by") @db.Binary(16)
+  updatedBy Bytes     @map("updated_by") @db.Binary(16)
+  deletedBy Bytes?    @map("deleted_by") @db.Binary(16)
+
+  tenant             Tenant              @relation(fields: [tenantId], references: [id])
+  permissionPolicies RbacRoleHasPolicy[]
+  RbacUserHasPolicy  RbacUserHasPolicy[]
+
+  @@map("rbac_permissions")
+}
+
+model RbacUserHasRole {
+  id              Int     @id @default(autoincrement()) @map("id")
+  uid             Bytes   @unique @map("uid") @db.Binary(16)
+  roleId          Int     @map("role_id")
+  userId          Int     @map("user_id")
+  isSystemDefault Boolean @default(true) @map("is_system_default")
+
+  createdAt DateTime  @map("created_at")
+  updatedAt DateTime  @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+  createdBy Bytes     @map("created_by") @db.Binary(16)
+  updatedBy Bytes     @map("updated_by") @db.Binary(16)
+  deletedBy Bytes?    @map("deleted_by") @db.Binary(16)
+
+  role RbacRole @relation(fields: [roleId], references: [id])
+  user User     @relation(fields: [userId], references: [id])
+
+  @@map("rbac_user_has_roles")
+}
+
+model RbacRoleHasPolicy {
+  id              Int     @id @default(autoincrement()) @map("id")
+  uid             Bytes   @unique @map("uid") @db.Binary(16)
+  roleId          Int     @map("role_id")
+  resourceId      Int     @map("resource_id")
+  permissionId    Int     @map("permission_id")
+  isSystemDefault Boolean @default(true) @map("is_system_default")
+
+  createdAt DateTime  @map("created_at")
+  updatedAt DateTime  @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+  createdBy Bytes     @map("created_by") @db.Binary(16)
+  updatedBy Bytes     @map("updated_by") @db.Binary(16)
+  deletedBy Bytes?    @map("deleted_by") @db.Binary(16)
+
+  role       RbacRole       @relation(fields: [roleId], references: [id])
+  resource   RbacResource   @relation(fields: [resourceId], references: [id])
+  permission RbacPermission @relation(fields: [permissionId], references: [id])
+
+  @@map("rbac_role_has_policies")
+}
+
+model RbacUserHasPolicy {
+  id              Int     @id @default(autoincrement()) @map("id")
+  uid             Bytes   @unique @map("uid") @db.Binary(16)
+  userId          Int     @map("user_id")
+  resourceId      Int     @map("resource_id")
+  permissionId    Int     @map("permission_id")
+  isSystemDefault Boolean @default(true) @map("is_system_default")
+
+  createdAt DateTime  @map("created_at")
+  updatedAt DateTime  @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+  createdBy Bytes     @map("created_by") @db.Binary(16)
+  updatedBy Bytes     @map("updated_by") @db.Binary(16)
+  deletedBy Bytes?    @map("deleted_by") @db.Binary(16)
+
+  user       User           @relation(fields: [userId], references: [id])
+  resource   RbacResource   @relation(fields: [resourceId], references: [id])
+  permission RbacPermission @relation(fields: [permissionId], references: [id])
+
+  @@map("rbac_user_has_policies")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
