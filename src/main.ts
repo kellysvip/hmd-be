@@ -1,10 +1,18 @@
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import * as fs from 'fs';
+import { join } from 'path';
 
 import { AppModule } from './app.module';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const sslPath = join(process.cwd(), 'ssl');
+  const httpsOptions = {
+    key: fs.readFileSync(join(sslPath, 'server.key')),
+    cert: fs.readFileSync(join(sslPath, 'server.pem')),
+  };
+
+  const app = await NestFactory.create(AppModule, { httpsOptions });
 
   const docConfig = new DocumentBuilder()
     .setTitle('HMD API Documentation')
