@@ -25,7 +25,7 @@ export class AuthController {
   @ApiBody(loginBodySchema)
   @UsePipes(validationPipe)
   @HttpCode(HttpStatus.OK)
-  async login(@Headers('deviceId') deviceId: string, @Body() dto: AuthDto) {
+  async login(@Headers('device-id') deviceId: string, @Body() dto: AuthDto) {
     const numericDeviceId = Number(deviceId);
 
     if (isNaN(numericDeviceId)) {

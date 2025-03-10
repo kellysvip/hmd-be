@@ -1323,7 +1323,7 @@ describe('AuthController', () => {
         it('UTCID03: Should return 422 when username and password are missing', async () => {
           const response = await request(app.getHttpServer())
             .post(testLoginEndPoint)
-            .set('deviceId', '1')
+            .set('device-id', '1')
             .send();
 
           expect(response.status).toBe(422);
@@ -1338,7 +1338,7 @@ describe('AuthController', () => {
         it('UTCID05: Should return 422 when password is missing', async () => {
           const response = await request(app.getHttpServer())
             .post(testLoginEndPoint)
-            .set('deviceId', '1')
+            .set('device-id', '1')
             .send({ username: validUsername });
 
           expect(response.status).toBe(422);
@@ -1350,7 +1350,7 @@ describe('AuthController', () => {
         it('UTCID06: Should return 422 when username is missing', async () => {
           const response = await request(app.getHttpServer())
             .post(testLoginEndPoint)
-            .set('deviceId', '1')
+            .set('device-id', '1')
             .send({ password: validPassword });
 
           expect(response.status).toBe(422);
@@ -1364,7 +1364,7 @@ describe('AuthController', () => {
         it('UTCID10: Should return 422 with type validation errors when username and password are null', async () => {
           const response = await request(app.getHttpServer())
             .post(testLoginEndPoint)
-            .set('deviceId', '1')
+            .set('device-id', '1')
             .send({ username: null, password: null });
 
           expect(response.status).toBe(422);
@@ -1379,7 +1379,7 @@ describe('AuthController', () => {
         it('UTCID12: Should return 422 when password is null', async () => {
           const response = await request(app.getHttpServer())
             .post(testLoginEndPoint)
-            .set('deviceId', '1')
+            .set('device-id', '1')
             .send({ username: validUsername, password: null });
 
           expect(response.status).toBe(422);
@@ -1391,7 +1391,7 @@ describe('AuthController', () => {
         it('UTCID13: Should return 422 when username is null', async () => {
           const response = await request(app.getHttpServer())
             .post(testLoginEndPoint)
-            .set('deviceId', '1')
+            .set('device-id', '1')
             .send({ username: null, password: validPassword });
 
           expect(response.status).toBe(422);
@@ -1405,7 +1405,7 @@ describe('AuthController', () => {
         it('UTCID17: Should return 422 when username and password are empty strings', async () => {
           const response = await request(app.getHttpServer())
             .post(testLoginEndPoint)
-            .set('deviceId', '1')
+            .set('device-id', '1')
             .send({ username: '', password: '' });
 
           expect(response.status).toBe(422);
@@ -1420,7 +1420,7 @@ describe('AuthController', () => {
         it('UTCID18: Should return 422 when username is empty strings', async () => {
           const response = await request(app.getHttpServer())
             .post(testLoginEndPoint)
-            .set('deviceId', '1')
+            .set('device-id', '1')
             .send({ username: '', password: validPassword });
 
           expect(response.status).toBe(422);
@@ -1432,7 +1432,7 @@ describe('AuthController', () => {
         it('UTCID19: Should return 422 when password is empty strings', async () => {
           const response = await request(app.getHttpServer())
             .post(testLoginEndPoint)
-            .set('deviceId', '1')
+            .set('device-id', '1')
             .send({ username: validUsername, password: '' });
 
           expect(response.status).toBe(422);
@@ -1446,7 +1446,7 @@ describe('AuthController', () => {
         it('UTCID23: Should return 422 when username and password are number 0', async () => {
           const response = await request(app.getHttpServer())
             .post(testLoginEndPoint)
-            .set('deviceId', '1')
+            .set('device-id', '1')
             .send({ username: 0, password: 0 });
 
           expect(response.status).toBe(422);
@@ -1459,7 +1459,7 @@ describe('AuthController', () => {
         it('UTCID23: Should return 422 when username is number 0', async () => {
           const response = await request(app.getHttpServer())
             .post(testLoginEndPoint)
-            .set('deviceId', '1')
+            .set('device-id', '1')
             .send({ username: 0, password: validPassword });
 
           expect(response.status).toBe(422);
@@ -1471,7 +1471,7 @@ describe('AuthController', () => {
         it('UTCID24: Should return 422 when password is number 0', async () => {
           const response = await request(app.getHttpServer())
             .post(testLoginEndPoint)
-            .set('deviceId', '1')
+            .set('device-id', '1')
             .send({ username: validUsername, password: 0 });
 
           expect(response.status).toBe(422);
@@ -1484,7 +1484,7 @@ describe('AuthController', () => {
           it('UTCID29: Should not return 422 when username is string "0"', async () => {
             const response = await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('deviceId', '1')
+              .set('device-id', '1')
               .send({ username: '0', password: validPassword });
 
             expect(response.status).not.toBe(422);
@@ -1493,7 +1493,7 @@ describe('AuthController', () => {
           it('UTCID30: Should return 422 when password is string "0"', async () => {
             const response = await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('deviceId', '1')
+              .set('device-id', '1')
               .send({ username: validUsername, password: '0' });
 
             expect(response.status).toBe(422);
@@ -1505,7 +1505,7 @@ describe('AuthController', () => {
           it('UTCID32: Should return 422 when username and password are string "0"', async () => {
             const response = await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('deviceId', '1')
+              .set('device-id', '1')
               .send({ username: '0', password: '0' });
 
             expect(response.status).toBe(422);
@@ -1519,7 +1519,7 @@ describe('AuthController', () => {
           it('UTCID35: Should return 422 when username contains special characters', async () => {
             const response = await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('deviceId', '1')
+              .set('device-id', '1')
               .send({
                 username: 'user@!',
                 password: validPassword,
@@ -1534,7 +1534,7 @@ describe('AuthController', () => {
           it('UTCID36: Should not return 422 when password contains special characters', async () => {
             const response = await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('deviceId', '1')
+              .set('device-id', '1')
               .send({
                 username: validUsername,
                 password: 'pass@word#123',
@@ -1546,7 +1546,7 @@ describe('AuthController', () => {
           it('UTCID37: Should return 422 when username and password contain special characters', async () => {
             const response = await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('deviceId', '1')
+              .set('device-id', '1')
               .send({
                 username: 'user@!',
                 password: 'pass@word#123',
@@ -1561,7 +1561,7 @@ describe('AuthController', () => {
           it('UTCID38: Should return 422 when username contains spaces', async () => {
             const response = await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('deviceId', '1')
+              .set('device-id', '1')
               .send({
                 username: 'test user',
                 password: validPassword,
@@ -1578,7 +1578,7 @@ describe('AuthController', () => {
           it('UTCID41: Should return 422 when password is too short', async () => {
             const response = await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('deviceId', '1')
+              .set('device-id', '1')
               .send({
                 username: validUsername,
                 password: 'shortpwd',
@@ -1593,7 +1593,7 @@ describe('AuthController', () => {
           it('UTCID42: Should not return 422 when password is too long', async () => {
             const response = await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('deviceId', '1')
+              .set('device-id', '1')
               .send({
                 username: validUsername,
                 password: '123412341234',
@@ -1607,7 +1607,7 @@ describe('AuthController', () => {
           it('UTCID43: Should not return 422 when username contains only letters', async () => {
             const response = await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('deviceId', '1')
+              .set('device-id', '1')
               .send({
                 username: 'abcdef',
                 password: validPassword,
@@ -1619,7 +1619,7 @@ describe('AuthController', () => {
           it('UTCID44: Should not return 422 when username contains only numbers', async () => {
             const response = await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('deviceId', '1')
+              .set('device-id', '1')
               .send({
                 username: '123456',
                 password: validPassword,
@@ -1631,7 +1631,7 @@ describe('AuthController', () => {
           it('UTCID45: Should not return 422 when username contains letters and numbers', async () => {
             const response = await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('deviceId', '1')
+              .set('device-id', '1')
               .send({
                 username: 'hmd456',
                 password: validPassword,
@@ -1643,7 +1643,7 @@ describe('AuthController', () => {
           it('UTCID46: Should not return 422 when password contains only letters', async () => {
             const response = await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('deviceId', '1')
+              .set('device-id', '1')
               .send({
                 username: validUsername,
                 password: 'validonlyletters',
@@ -1655,7 +1655,7 @@ describe('AuthController', () => {
           it('UTCID47: Should not return 422 when password contains only numbers', async () => {
             const response = await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('deviceId', '1')
+              .set('device-id', '1')
               .send({
                 username: validUsername,
                 password: '123456789012',
@@ -1667,7 +1667,7 @@ describe('AuthController', () => {
           it('UTCID48: Should not return 422 when password contains letters and numbers', async () => {
             const response = await request(app.getHttpServer())
               .post(testLoginEndPoint)
-              .set('deviceId', '1')
+              .set('device-id', '1')
               .send({
                 username: validUsername,
                 password: 'password1234',
