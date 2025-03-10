@@ -10,6 +10,6 @@ export const config = {
     REFILL_RATE: parseInt(process.env.REFILL_RATE || '5'),
     BUCKET_CAPACITY: parseInt(process.env.BUCKET_CAPACITY || '15'),
     HOST: process.env.HOST || '127.0.0.1',
-    PORT: parseInt(process.env.PORT || '6379'),
+    PORT: parseInt(process.env.REDIS_PORT || '6379'),
   },
 };
